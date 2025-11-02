@@ -18,4 +18,10 @@ describe('Service worker helpers', () => {
     const result = parsePreviewRequest(new URL('https://example.com/assets/app.js'));
     expect(result).toBeNull();
   });
+
+  test('parsePreviewRequest honours base path', () => {
+    const url = new URL('https://example.com/app/preview/foo/index.html');
+    const result = parsePreviewRequest(url, { basePath: '/app/' });
+    expect(result).toEqual({ sessionId: 'foo', path: 'index.html', origin: 'https://example.com' });
+  });
 });

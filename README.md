@@ -18,14 +18,16 @@ A single-page web app that previews eXeLearning exports (`.elpx`) and inspects p
    ```
 2. Configure the GitHub OAuth client (required for publishing):
    - Create a **GitHub OAuth App** (Settings → Developer settings → OAuth Apps) and enable **Device Flow**.
-   - Copy the client ID and paste it into `config.js`:
-     ```js
-     window.APP_CONFIG = {
-       githubClientId: "YOUR_CLIENT_ID",
-       defaultPagesBranch: "gh-pages"
-     };
-     ```
-   - The default branch (`gh-pages`) can be adjusted if you have a preferred Pages branch.
+  - Copy the client ID and paste it into `config.js`:
+    ```js
+    window.APP_CONFIG = {
+      githubClientId: "YOUR_CLIENT_ID",
+      defaultPagesBranch: "gh-pages",
+      deviceFlowProxy: "https://cors.isomorphic-git.org"
+    };
+    ```
+  - The default branch (`gh-pages`) can be adjusted if you have a preferred Pages branch.
+  - `deviceFlowProxy` is used as a transparent CORS proxy for the OAuth Device Flow endpoints, which are not CORS-enabled when called directly from the browser. You can replace it with your own proxy or set it to an empty string if you already expose the endpoints through another domain.
 3. Start a static server for local development (disables caching so the service worker picks up changes quickly):
    ```bash
    npm run start

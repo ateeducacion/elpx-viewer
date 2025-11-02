@@ -1,13 +1,17 @@
 const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
 const sessions = new Map();
 
-export function parsePreviewRequest(url) {
+export function parsePreviewRequest(url, { basePath = '/' } = {}) {
   const { pathname, origin } = url instanceof URL ? url : new URL(url);
-  const previewPrefix = '/preview/';
-  if (!pathname.startsWith(previewPrefix)) {
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  if (!pathname.startsWith(normalizedBase)) {
     return null;
   }
-  const remainder = pathname.slice(previewPrefix.length);
+  const relative = pathname.slice(normalizedBase.length);
+  if (!relative.startsWith('preview/')) {
+    return null;
+  }
+  const remainder = relative.slice('preview/'.length);
   const [sessionId, ...rest] = remainder.split('/');
   if (!sessionId || rest.length === 0) {
     return null;
@@ -42,6 +46,9 @@ function storeSession(sessionId, files) {
 }
 
 const scope = typeof self !== 'undefined' ? self : null;
+const scopeBasePath = scope
+  ? scope.location.pathname.replace(/[^/]*$/, '') || '/'
+  : '/';
 
 if (scope) {
   scope.addEventListener('install', (event) => {
@@ -77,7 +84,7 @@ if (scope) {
     if (requestUrl.origin !== scope.location.origin) {
       return;
     }
-    const parsed = parsePreviewRequest(requestUrl);
+    const parsed = parsePreviewRequest(requestUrl, { basePath: scopeBasePath });
     if (!parsed) {
       return;
     }

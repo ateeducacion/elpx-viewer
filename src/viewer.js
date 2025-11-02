@@ -32,6 +32,10 @@ const infoPanel = new InfoPanel(document.getElementById('infoContent'));
 let githubPublisher = null;
 let currentSession = null;
 
+function getAppBaseUrl() {
+  return new URL('./', window.location.href);
+}
+
 function postToServiceWorker(message) {
   if (!('serviceWorker' in navigator)) {
     return;
@@ -114,7 +118,8 @@ async function registerServiceWorker() {
     return null;
   }
   try {
-    const registration = await navigator.serviceWorker.register('sw.js', { type: 'module' });
+    const swUrl = new URL('../sw.js', import.meta.url);
+    const registration = await navigator.serviceWorker.register(swUrl.href, { type: 'module' });
     return registration;
   } catch (error) {
     console.error('Service worker registration failed', error);
@@ -266,7 +271,8 @@ async function handleElpxFile(file) {
     }))
   });
 
-  setPreviewState({ showFrame: true, src: `/preview/${sessionId}/index.html` });
+  const previewUrl = new URL(`preview/${sessionId}/index.html`, getAppBaseUrl());
+  setPreviewState({ showFrame: true, src: previewUrl.toString() });
   updateStatus('Preview ready.');
 
   const messages = gatherMessages(manifestKind, xmlDoc, zip);

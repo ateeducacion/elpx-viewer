@@ -23,6 +23,7 @@ export class GitHubPublisher {
 
     this.clientId = window.APP_CONFIG?.githubClientId;
     this.defaultPagesBranch = window.APP_CONFIG?.defaultPagesBranch || 'gh-pages';
+    this.deviceFlowProxy = window.APP_CONFIG?.deviceFlowProxy || '';
 
     this.archive = null;
     this.sessionUnsupported = false;
@@ -40,6 +41,7 @@ export class GitHubPublisher {
     this.branches = [];
     this.branchExists = false;
     this.publishResult = null;
+    this.deviceProxyUsed = false;
 
     this.initListeners();
     if (this.token) {
@@ -117,6 +119,59 @@ export class GitHubPublisher {
     }
     if (this.elements.primaryButton) {
       this.elements.primaryButton.addEventListener('click', () => this.handlePrimaryAction());
+    }
+  }
+
+  getDeviceProxy() {
+    const proxy = typeof this.deviceFlowProxy === 'string' ? this.deviceFlowProxy.trim() : '';
+    if (!proxy) {
+      return '';
+    }
+    return proxy.replace(/\/$/, '');
+  }
+
+  applyDeviceProxy(url) {
+    const proxy = this.getDeviceProxy();
+    if (!proxy) {
+      return url;
+    }
+    return `${proxy}/${url}`;
+  }
+
+  isLikelyCorsError(error) {
+    return error instanceof TypeError || /Failed to fetch/i.test(error?.message || '');
+  }
+
+  async requestDeviceEndpoint(url, params) {
+    const attempt = async (targetUrl) => {
+      const body = new URLSearchParams(params);
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        const error = new Error(`GitHub responded with ${response.status}`);
+        error.status = response.status;
+        error.body = text;
+        throw error;
+      }
+      return response.json();
+    };
+
+    if (this.deviceProxyUsed && this.getDeviceProxy()) {
+      return attempt(this.applyDeviceProxy(url));
+    }
+
+    try {
+      return await attempt(url);
+    } catch (error) {
+      if (!this.deviceProxyUsed && this.getDeviceProxy() && this.isLikelyCorsError(error)) {
+        this.deviceProxyUsed = true;
+        return attempt(this.applyDeviceProxy(url));
+      }
+      throw error;
     }
   }
 
@@ -254,20 +309,12 @@ export class GitHubPublisher {
       this.toast('GitHub OAuth Client ID is missing.', 'danger');
       return;
     }
+    this.deviceProxyUsed = false;
     try {
-      const body = new URLSearchParams({
+      const payload = await this.requestDeviceEndpoint(DEVICE_AUTH_ENDPOINT, {
         client_id: this.clientId,
         scope: DEFAULT_SCOPES.join(' ')
       });
-      const response = await fetch(DEVICE_AUTH_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-        body
-      });
-      if (!response.ok) {
-        throw new Error('Unable to start device authorization.');
-      }
-      const payload = await response.json();
       this.deviceFlowState = payload;
       this.showDeviceCodePanel(payload);
       this.pollDeviceFlow();
@@ -284,20 +331,11 @@ export class GitHubPublisher {
     const { device_code, interval } = this.deviceFlowState;
     const poll = async () => {
       try {
-        const body = new URLSearchParams({
+        const data = await this.requestDeviceEndpoint(DEVICE_TOKEN_ENDPOINT, {
           client_id: this.clientId,
           device_code,
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
         });
-        const response = await fetch(DEVICE_TOKEN_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-          body
-        });
-        if (!response.ok) {
-          throw new Error('Device authorization failed.');
-        }
-        const data = await response.json();
         if (data.error) {
           if (data.error === 'authorization_pending') {
             if (this.pollingTimeout) {
