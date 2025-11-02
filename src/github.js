@@ -22,7 +22,6 @@ export class GitHubPublisher {
     this.deviceFlowProxy = window.APP_CONFIG?.deviceFlowProxy || '';
 
     this.archive = null;
-    this.sessionUnsupported = false;
     this.deviceFlowState = null;
     this.pollingTimeout = null;
     this.publishAbort = null;
@@ -200,9 +199,8 @@ export class GitHubPublisher {
     }
   }
 
-  setArchive(archive, isUnsupported = false) {
+  setArchive(archive) {
     this.archive = archive;
-    this.sessionUnsupported = isUnsupported;
     if (this.button) {
       this.button.disabled = !archive;
     }
@@ -234,9 +232,6 @@ export class GitHubPublisher {
     if (!this.clientId) {
       this.renderError('Missing GitHub OAuth Client ID. Update config.js.');
       return;
-    }
-    if (this.sessionUnsupported) {
-      this.toast('Publishing disabled: the current package is not compatible.', 'warning');
     }
     if (this.token && this.octokit && this.repos.length === 0) {
       void this.loadRepositories();

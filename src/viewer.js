@@ -150,11 +150,6 @@ async function ensureServiceWorkerController() {
 
 function computeCompatibility(metadata) {
   const versionSource = metadata?.resources?.odeVersionName || metadata?.properties?.version || '';
-  const versionMatch = versionSource.match(/(\d+)(?:\.(\d+))?/);
-  const major = versionMatch ? Number.parseInt(versionMatch[1], 10) : null;
-  if (major && major <= 2) {
-    return { isUnsupported: true, versionLabel: versionSource || '2.x' };
-  }
   return { isUnsupported: false, versionLabel: versionSource || '' };
 }
 
@@ -272,7 +267,7 @@ async function handleElpxFile(file) {
       ? normalizeLegacyMetadata(extractLegacyMetadata(xmlDoc))
       : extractMetadata(xmlDoc);
 
-  const { isUnsupported, versionLabel } = computeCompatibility(metadata);
+  const { versionLabel } = computeCompatibility(metadata);
 
   const { fileMap, fileList, totalSize } = await buildFileMap(zip, (current, total) => {
     updateStatus(`Preparing preview… ${current}/${total}`);
@@ -303,12 +298,6 @@ async function handleElpxFile(file) {
   updateStatus('Preview ready.');
 
   const messages = gatherMessages(manifestKind, xmlDoc, zip);
-  if (isUnsupported) {
-    messages.unshift({
-      level: 'warning',
-      text: 'The manifest reports ELP v2. Preview is available, but publishing may require manual verification.'
-    });
-  }
 
   currentSession = {
     sessionId,
@@ -347,7 +336,7 @@ async function handleElpxFile(file) {
   }
 
   if (githubPublisher) {
-    githubPublisher.setArchive(currentSession, isUnsupported);
+    githubPublisher.setArchive(currentSession);
   }
 }
 
@@ -381,11 +370,11 @@ async function handleElpFile(file) {
       ? normalizeLegacyMetadata(extractLegacyMetadata(xmlDoc))
       : extractMetadata(xmlDoc);
 
-  const { isUnsupported, versionLabel } = computeCompatibility(metadata);
+  const { versionLabel } = computeCompatibility(metadata);
 
   setPreviewState({ showFrame: false });
   infoPanel.update({
-    status: isUnsupported ? 'unsupported' : 'ready',
+    status: 'ready',
     fileName: file.name,
     fileSize: file.size,
     fileType: 'elp',
@@ -407,10 +396,6 @@ async function handleElpFile(file) {
   if (publishButton) {
     publishButton.disabled = true;
     publishButton.setAttribute('aria-disabled', 'true');
-  }
-
-  if (isUnsupported) {
-    showToast('ELP v2 packages are not supported by the viewer.', 'warning');
   }
 }
 
