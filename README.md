@@ -52,23 +52,6 @@ npm test
 - Publishing prefers the Git Data API for a single atomic commit and falls back to the Contents API for smaller repositories.
 - The app configures GitHub Pages for the chosen branch (`branch /` mode) and surfaces links to the repository branch and the resulting site.
 
-## Project Structure
-
-```
-index.html          # Application shell (Bootstrap layout, modal, toasts)
-styles.css          # Lightweight custom styles for dropzone, preview, modal
-config.js           # Runtime configuration (GitHub client ID, defaults)
-src/
-  viewer.js         # UI wiring, drag & drop, JSZip integration, service worker hand-off
-  viewer-utils.js   # Pure helpers tested by Jest (file type detection, MIME, map builder)
-  info.js           # Info tab renderer (metadata, messages, inventory download)
-  github.js         # GitHub Device Flow client + publishing workflow
-  github-utils.js   # Shareable GitHub helpers (branch validation, tree shaping)
-  validator.js      # Manifest helpers shared with Info tab + Jest tests
-sw.js               # Service worker that serves extracted files from memory
-__tests__/          # Jest test suite (viewer, service worker, GitHub helpers, validator)
-```
-
 ## Browser Support
 
 - Requires a modern browser with service worker and `async/await` support (Chromium, Firefox, Safari ≥ 16).
