@@ -1,0 +1,115 @@
+:root {
+  --dropzone-border: 2px dashed rgba(0, 0, 0, 0.2);
+  --dropzone-hover: rgba(13, 110, 253, 0.25);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.dropzone {
+  border: var(--dropzone-border);
+  border-radius: 1rem;
+  padding: 3rem 1.5rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dropzone:focus-visible {
+  outline: none;
+  border-color: rgba(13, 110, 253, 0.75);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.dropzone.is-dragover {
+  background-color: var(--dropzone-hover);
+  border-color: rgba(13, 110, 253, 0.75);
+  transform: translateY(-2px);
+}
+
+.dropzone-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.dropzone-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.dropzone-subtitle {
+  margin-bottom: 0;
+  color: #6c757d;
+}
+
+.preview-wrapper {
+  min-height: 480px;
+  background-color: #fff;
+}
+
+.preview-frame {
+  width: 100%;
+  height: clamp(480px, 60vh, 720px);
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.125);
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+}
+
+.preview-placeholder {
+  min-height: clamp(320px, 40vh, 520px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.preview-placeholder p {
+  max-width: 520px;
+}
+
+#statusMessage {
+  min-height: 1.25rem;
+}
+
+#githubPublishForm .form-text a {
+  text-decoration: none;
+}
+
+#publishProgressBar {
+  transition: width 0.3s ease;
+}
+
+#publishLog {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+#githubResultSection .alert {
+  border: none;
+}
+
+#toastContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  width: min(360px, calc(100vw - 1.5rem));
+}
+
+#toastContainer .toast {
+  width: 100%;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .dropzone {
+    padding: 2.25rem 1.25rem;
+  }
+
+  .preview-frame {
+    height: clamp(360px, 50vh, 560px);
+  }
+}
