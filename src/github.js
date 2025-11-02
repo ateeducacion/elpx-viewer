@@ -1,9 +1,5 @@
 import { Octokit } from 'https://cdn.jsdelivr.net/npm/@octokit/rest@20.1.1/+esm';
-import {
-  isValidBranchName,
-  buildTreeEntriesFromFiles,
-  computePagesUrl
-} from './github-utils.js';
+import { isValidBranchName, buildTreeEntriesFromFiles, computePagesUrl } from './github-utils.js';
 
 const DEVICE_AUTH_ENDPOINT = 'https://github.com/login/device/code';
 const DEVICE_TOKEN_ENDPOINT = 'https://github.com/login/oauth/access_token';
@@ -15,7 +11,7 @@ export class GitHubPublisher {
   constructor({ button, modalElement, toast, formatBytes }) {
     this.button = button;
     this.modalElement = modalElement;
-    this.toast = typeof toast === 'function' ? toast : (() => {});
+    this.toast = typeof toast === 'function' ? toast : () => {};
     this.formatBytes = formatBytes || ((value) => `${value} B`);
 
     this.elements = this.getElements();
@@ -147,7 +143,10 @@ export class GitHubPublisher {
       const body = new URLSearchParams(params);
       const response = await fetch(targetUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json'
+        },
         body
       });
       if (!response.ok) {
@@ -187,7 +186,10 @@ export class GitHubPublisher {
       this.octokit = new Octokit({ auth: this.token, userAgent: 'ELPX Viewer' });
       const { data } = await this.octokit.rest.users.getAuthenticated();
       this.user = data;
-      sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify({ login: data.login, avatar_url: data.avatar_url }));
+      sessionStorage.setItem(
+        USER_STORAGE_KEY,
+        JSON.stringify({ login: data.login, avatar_url: data.avatar_url })
+      );
       this.renderAuthStatus();
       await this.loadRepositories();
       this.showPublishForm();
@@ -266,7 +268,9 @@ export class GitHubPublisher {
       this.hidePublishForm();
       return;
     }
-    const avatar = this.user.avatar_url ? `<img src="${this.user.avatar_url}" alt="" class="rounded-circle me-2" width="28" height="28">` : '';
+    const avatar = this.user.avatar_url
+      ? `<img src="${this.user.avatar_url}" alt="" class="rounded-circle me-2" width="28" height="28">`
+      : '';
     this.elements.authStatus.innerHTML = `<div class="d-flex align-items-center">${avatar}<span>Signed in as <strong>${this.user.login}</strong></span></div>`;
     this.toggleAuthControls(false);
     this.showPublishForm();
@@ -706,7 +710,9 @@ export class GitHubPublisher {
     }
 
     this.logProgress('Creating tree…');
-    const tree = buildTreeEntriesFromFiles(entries.map(([path]) => ({ path, sha: blobMap.get(path) })));
+    const tree = buildTreeEntriesFromFiles(
+      entries.map(([path]) => ({ path, sha: blobMap.get(path) }))
+    );
     const { data: treeData } = await this.octokit.rest.git.createTree({
       owner: ownerLogin,
       repo: repoName,
@@ -717,13 +723,22 @@ export class GitHubPublisher {
     let parentSha = null;
     try {
       if (this.branchExists) {
-        const ref = await this.octokit.rest.git.getRef({ owner: ownerLogin, repo: repoName, ref: `heads/${branchName}` });
+        const ref = await this.octokit.rest.git.getRef({
+          owner: ownerLogin,
+          repo: repoName,
+          ref: `heads/${branchName}`
+        });
         parentSha = ref.data.object.sha;
       } else if (repo.default_branch) {
-        const ref = await this.octokit.rest.git.getRef({ owner: ownerLogin, repo: repoName, ref: `heads/${repo.default_branch}` });
+        const ref = await this.octokit.rest.git.getRef({
+          owner: ownerLogin,
+          repo: repoName,
+          ref: `heads/${repo.default_branch}`
+        });
         parentSha = ref.data.object.sha;
       }
     } catch (error) {
+      console.warn('Failed to read existing branch reference', error);
       this.logProgress('Unable to read existing branch reference. Creating a root commit.');
     }
 
@@ -769,10 +784,19 @@ export class GitHubPublisher {
 
     let branchRef;
     try {
-      branchRef = await this.octokit.rest.git.getRef({ owner: ownerLogin, repo: repoName, ref: `heads/${branchName}` });
+      branchRef = await this.octokit.rest.git.getRef({
+        owner: ownerLogin,
+        repo: repoName,
+        ref: `heads/${branchName}`
+      });
     } catch (error) {
+      console.warn(`Branch ${branchName} missing; creating from default`, error);
       const baseBranch = repo.default_branch || 'main';
-      const baseRef = await this.octokit.rest.git.getRef({ owner: ownerLogin, repo: repoName, ref: `heads/${baseBranch}` });
+      const baseRef = await this.octokit.rest.git.getRef({
+        owner: ownerLogin,
+        repo: repoName,
+        ref: `heads/${baseBranch}`
+      });
       await this.octokit.rest.git.createRef({
         owner: ownerLogin,
         repo: repoName,
@@ -780,7 +804,11 @@ export class GitHubPublisher {
         sha: baseRef.data.object.sha
       });
       this.logProgress(`Branch ${branchName} created from ${baseBranch}.`);
-      branchRef = await this.octokit.rest.git.getRef({ owner: ownerLogin, repo: repoName, ref: `heads/${branchName}` });
+      branchRef = await this.octokit.rest.git.getRef({
+        owner: ownerLogin,
+        repo: repoName,
+        ref: `heads/${branchName}`
+      });
       this.branchExists = true;
     }
 

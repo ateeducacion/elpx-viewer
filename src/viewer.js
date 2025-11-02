@@ -13,12 +13,7 @@ import {
 } from './validator.js';
 import { InfoPanel, formatBytes } from './info.js';
 import { GitHubPublisher } from './github.js';
-import {
-  detectFileType,
-  inferMimeType,
-  hasIndexHtml,
-  buildFileRecords
-} from './viewer-utils.js';
+import { detectFileType, hasIndexHtml, buildFileRecords } from './viewer-utils.js';
 
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
@@ -166,27 +161,42 @@ function computeCompatibility(metadata) {
 function gatherMessages(manifestKind, xmlDoc, zip) {
   const messages = [];
   if (manifestKind === 'legacy') {
-    messages.push({ level: 'warning', text: 'Legacy manifest format detected. Structural validation checks were skipped.' });
+    messages.push({
+      level: 'warning',
+      text: 'Legacy manifest format detected. Structural validation checks were skipped.'
+    });
     return messages;
   }
 
   const rootResult = checkRootElement(xmlDoc);
-  messages.push({ level: rootResult.status === 'success' ? 'info' : 'error', text: rootResult.message });
+  messages.push({
+    level: rootResult.status === 'success' ? 'info' : 'error',
+    text: rootResult.message
+  });
   if (rootResult.status === 'error') {
     return messages;
   }
 
   const navResult = checkNavStructures(xmlDoc);
-  messages.push({ level: navResult.status === 'success' ? 'info' : 'error', text: navResult.message });
+  messages.push({
+    level: navResult.status === 'success' ? 'info' : 'error',
+    text: navResult.message
+  });
   if (navResult.status === 'error') {
     return messages;
   }
 
   const pagesResult = checkPagePresence(xmlDoc);
-  messages.push({ level: pagesResult.status === 'success' ? 'info' : pagesResult.status, text: pagesResult.message });
+  messages.push({
+    level: pagesResult.status === 'success' ? 'info' : pagesResult.status,
+    text: pagesResult.message
+  });
 
   const structureResult = validateStructuralIntegrity(xmlDoc);
-  messages.push({ level: structureResult.status === 'success' ? 'info' : 'error', text: structureResult.message });
+  messages.push({
+    level: structureResult.status === 'success' ? 'info' : 'error',
+    text: structureResult.message
+  });
 
   const resourcePaths = extractResourcePaths(xmlDoc);
   const missingResources = findMissingResources(resourcePaths, zip);
@@ -197,7 +207,10 @@ function gatherMessages(manifestKind, xmlDoc, zip) {
       text: `Missing ${missingResources.length} referenced resource${missingResources.length === 1 ? '' : 's'} (first: ${preview}${missingResources.length > 5 ? ', …' : ''}).`
     });
   } else if (resourcePaths.length > 0) {
-    messages.push({ level: 'info', text: `All ${resourcePaths.length} linked resources are present.` });
+    messages.push({
+      level: 'info',
+      text: `All ${resourcePaths.length} linked resources are present.`
+    });
   } else {
     messages.push({ level: 'info', text: 'No linked resources were detected in the manifest.' });
   }
@@ -208,7 +221,10 @@ function gatherMessages(manifestKind, xmlDoc, zip) {
 function warnLargeArchive(totalSize) {
   const limit = 200 * 1024 * 1024;
   if (totalSize > limit) {
-    showToast('This archive is larger than 200 MB. Preview and publish operations may be slow.', 'warning');
+    showToast(
+      'This archive is larger than 200 MB. Preview and publish operations may be slow.',
+      'warning'
+    );
   }
 }
 
@@ -251,9 +267,10 @@ async function handleElpxFile(file) {
   }
 
   const xmlDoc = parseResult.document;
-  const metadata = manifestKind === 'legacy'
-    ? normalizeLegacyMetadata(extractLegacyMetadata(xmlDoc))
-    : extractMetadata(xmlDoc);
+  const metadata =
+    manifestKind === 'legacy'
+      ? normalizeLegacyMetadata(extractLegacyMetadata(xmlDoc))
+      : extractMetadata(xmlDoc);
 
   const { isUnsupported, versionLabel } = computeCompatibility(metadata);
 
@@ -359,9 +376,10 @@ async function handleElpFile(file) {
   }
 
   const xmlDoc = parseResult.document;
-  const metadata = manifestKind === 'legacy'
-    ? normalizeLegacyMetadata(extractLegacyMetadata(xmlDoc))
-    : extractMetadata(xmlDoc);
+  const metadata =
+    manifestKind === 'legacy'
+      ? normalizeLegacyMetadata(extractLegacyMetadata(xmlDoc))
+      : extractMetadata(xmlDoc);
 
   const { isUnsupported, versionLabel } = computeCompatibility(metadata);
 
@@ -377,10 +395,12 @@ async function handleElpFile(file) {
     startFile: 'index.html',
     fileList: [],
     summary: { totalFiles: 0, totalSize: 0 },
-    messages: [{
-      level: 'info',
-      text: 'Upload an .elpx export to render the preview. Only metadata is available for .elp files.'
-    }]
+    messages: [
+      {
+        level: 'info',
+        text: 'Upload an .elpx export to render the preview. Only metadata is available for .elp files.'
+      }
+    ]
   });
   infoPanel.setDownloadHandler(null);
 
@@ -486,6 +506,27 @@ function setupDragAndDrop() {
     dropzone.setAttribute('aria-hidden', 'true');
   };
 
+  const extractFirstFile = (dataTransfer) => {
+    if (!dataTransfer) {
+      return null;
+    }
+    if (dataTransfer.items && dataTransfer.items.length > 0) {
+      for (const item of Array.from(dataTransfer.items)) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            return file;
+          }
+        }
+      }
+    }
+    const files = dataTransfer.files;
+    if (files && files.length > 0) {
+      return files[0];
+    }
+    return null;
+  };
+
   const preventDefault = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -495,12 +536,13 @@ function setupDragAndDrop() {
     if (!isFileDrag(event)) {
       return;
     }
+    preventDefault(event);
     dragDepth += 1;
     showOverlay();
   });
 
-  document.addEventListener('dragleave', (event) => {
-    if (!isFileDrag(event)) {
+  document.addEventListener('dragleave', () => {
+    if (dragDepth === 0) {
       return;
     }
     dragDepth = Math.max(dragDepth - 1, 0);
@@ -510,15 +552,34 @@ function setupDragAndDrop() {
   });
 
   document.addEventListener('dragover', (event) => {
-    if (isFileDrag(event)) {
-      preventDefault(event);
+    if (!isFileDrag(event)) {
+      return;
+    }
+    preventDefault(event);
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
     }
   });
 
   document.addEventListener('drop', (event) => {
+    const droppedFile = extractFirstFile(event.dataTransfer);
+    if (droppedFile) {
+      preventDefault(event);
+      event.stopPropagation();
+      hideOverlay();
+      dragDepth = 0;
+      void handleFile(droppedFile);
+      return;
+    }
     if (isFileDrag(event)) {
       preventDefault(event);
+      event.stopPropagation();
     }
+    dragDepth = 0;
+    hideOverlay();
+  });
+
+  document.addEventListener('dragend', () => {
     dragDepth = 0;
     hideOverlay();
   });
@@ -552,12 +613,13 @@ function setupDragAndDrop() {
       return;
     }
     preventDefault(event);
+    event.stopPropagation();
     dropzone.classList.remove('is-dragover');
-    const files = event.dataTransfer?.files;
+    const file = extractFirstFile(event.dataTransfer);
     hideOverlay();
     dragDepth = 0;
-    if (files && files.length > 0) {
-      void handleFile(files[0]);
+    if (file) {
+      void handleFile(file);
     }
   });
 
@@ -597,7 +659,11 @@ async function initialise() {
   try {
     await ensureServiceWorkerController();
   } catch (error) {
-    showToast('Preview service worker could not start. Reload the page to enable previews.', 'danger');
+    console.warn('Service worker controller unavailable', error);
+    showToast(
+      'Preview service worker could not start. Reload the page to enable previews.',
+      'danger'
+    );
   }
 
   postToServiceWorker({ type: 'cleanup-sessions' });

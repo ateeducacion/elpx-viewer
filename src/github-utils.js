@@ -5,7 +5,7 @@ export function isValidBranchName(name) {
   if (trimmed.startsWith('/') || trimmed.endsWith('/')) return false;
   if (trimmed.includes('..') || trimmed.includes('@{')) return false;
   if (/\s/.test(trimmed)) return false;
-  if (!/^[A-Za-z0-9._\-\/]+$/.test(trimmed)) return false;
+  if (!/^[A-Za-z0-9._/-]+$/.test(trimmed)) return false;
   return true;
 }
 
@@ -21,7 +21,7 @@ export function buildTreeEntriesFromFiles(files) {
   }));
 }
 
-export function computePagesUrl(owner, repo, branch) {
+export function computePagesUrl(owner, repo) {
   if (!owner || !repo) {
     return null;
   }

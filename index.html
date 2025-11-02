@@ -1,183 +1,346 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>eXeLearning ELPX Viewer</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="icon" href="favicon.ico">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body class="bg-body-tertiary d-flex flex-column min-vh-100">
-  <header id="sdHeader" class="shadow-sm">
-    <div class="container-fluid d-flex flex-wrap align-items-center gap-3">
-      <div class="sd-header-copy">
-        <span class="sd-header-title d-block">eXeLearning ELPX Viewer</span>
-        <span class="sd-header-subtitle d-block">Preview and validate eXeLearning 3.0 packages entirely in your browser.</span>
-      </div>
-      <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
-        <button id="uploadButton" type="button" class="btn btn-outline-light btn-sm">
-          <span class="icon me-2" aria-hidden="true">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-              <path d="M8 1.25a.75.75 0 0 1 .53.22l3 3a.75.75 0 1 1-1.06 1.06L8.75 3.94V9a.75.75 0 0 1-1.5 0V3.94L5.53 5.53A.75.75 0 1 1 4.47 4.47l3-3A.75.75 0 0 1 8 1.25ZM3 10.5a.75.75 0 0 1 .75.75v2h8.5v-2a.75.75 0 0 1 1.5 0v2A1.75 1.75 0 0 1 12.5 15H3.5A1.75 1.75 0 0 1 1.75 13.25v-2a.75.75 0 0 1 1.5 0v2H3v-2a.75.75 0 0 1 .75-.75Z"></path>
-            </svg>
-          </span>
-          <span>Upload package</span>
-        </button>
-        <button id="publishButton" type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#publishModal" disabled aria-disabled="true">
-          <span class="icon me-2" aria-hidden="true">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2 0-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
-            </svg>
-          </span>
-          <span>Publish to GitHub</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <input id="fileInput" type="file" class="visually-hidden" accept=".elpx,.zip" aria-hidden="true">
-
-  <main class="flex-grow-1 py-3">
-    <div class="container-fluid px-4 viewer-shell d-flex flex-column gap-3">
-      <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center">
-        <p id="uploadHelp" class="text-muted small mb-0">ELPX preview requires an exported site with <code>index.html</code>. ELP v2 packages are not supported.</p>
-        <div id="statusMessage" class="text-muted small text-sm-end" role="status" aria-live="polite"></div>
-      </div>
-
-      <section class="viewer-area flex-grow-1 d-flex flex-column" aria-label="Viewer area">
-        <ul class="nav nav-tabs" id="viewerTabs" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="preview-tab" data-bs-toggle="tab" data-bs-target="#preview-panel" type="button" role="tab" aria-controls="preview-panel" aria-selected="true">Preview</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info-panel" type="button" role="tab" aria-controls="info-panel" aria-selected="false">Info</button>
-          </li>
-        </ul>
-        <div class="tab-content bg-body border border-top-0 rounded-bottom shadow-sm flex-grow-1 d-flex" id="viewerTabContent">
-          <div class="tab-pane fade show active" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab">
-            <div class="preview-wrapper position-relative">
-              <div id="dropzone" class="dropzone" role="button" tabindex="-1" aria-hidden="true" aria-describedby="uploadHelp">
-                <div class="dropzone-icon" aria-hidden="true">📦</div>
-                <p class="dropzone-title mb-1">Drop <strong>.elpx</strong> or <strong>.zip</strong> files to load</p>
-                <p class="dropzone-subtitle mb-0">Your preview will open automatically.</p>
-              </div>
-              <div id="previewPlaceholder" class="preview-placeholder text-center text-muted">
-                <p class="mb-1 fw-semibold">No package loaded yet</p>
-                <p class="mb-0">Use the upload button or drop an <code>.elpx</code> file anywhere on the page to render the exported site here.</p>
-              </div>
-              <iframe id="previewFrame" title="ELPX preview" class="preview-frame" sandbox="allow-scripts allow-same-origin" hidden></iframe>
-            </div>
-          </div>
-          <div class="tab-pane fade" id="info-panel" role="tabpanel" aria-labelledby="info-tab">
-            <div id="infoContent" class="p-4">
-              <p class="text-muted mb-0">Package details and validation messages will appear here.</p>
-            </div>
-          </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>eXeLearning ELPX Viewer</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="icon" href="favicon.ico" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-body-tertiary d-flex flex-column min-vh-100">
+    <header id="sdHeader" class="shadow-sm">
+      <div class="container-fluid d-flex flex-wrap align-items-center gap-3">
+        <div class="sd-header-copy">
+          <span class="sd-header-title d-block">eXeLearning ELPX Viewer</span>
+          <span class="sd-header-subtitle d-block"
+            >Preview and validate eXeLearning 3.0 packages entirely in your browser.</span
+          >
         </div>
-      </section>
-    </div>
-  </main>
-
-  <footer class="py-4 bg-body-secondary mt-auto">
-    <div class="container text-center text-muted small">
-      <p class="mb-1">All processing happens locally. Nothing leaves your browser.</p>
-      <p class="mb-0">Built by Área de Tecnología Educativa — Gobierno de Canarias</p>
-    </div>
-  </footer>
-
-  <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;"></div>
-
-  <div class="modal fade" id="publishModal" tabindex="-1" aria-labelledby="publishModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="publishModalLabel"><span aria-hidden="true" class="me-2">🐱</span>Publish to GitHub</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div id="authStatus" class="mb-3" role="status" aria-live="polite"></div>
-
-          <div id="deviceCodeSection" class="alert alert-info d-none" role="alert">
-            <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3">
-              <div>
-                <h6 class="alert-heading mb-1">Finish signing in</h6>
-                <p class="mb-1">Open <a id="deviceVerificationUri" href="#" target="_blank" rel="noopener">github.com/login/device</a> and enter this code:</p>
-              </div>
-              <div class="display-6 fw-bold" id="deviceUserCode" aria-live="assertive">—</div>
-            </div>
-            <p class="mb-0 small text-muted" id="deviceExpiryNotice"></p>
-          </div>
-
-          <div id="authControls" class="d-flex flex-wrap gap-2 mb-4">
-            <button type="button" class="btn btn-primary" id="startAuthButton">Sign in with GitHub</button>
-            <button type="button" class="btn btn-outline-secondary d-none" id="signOutButton">Sign out</button>
-          </div>
-
-          <div id="githubPublishForm" class="d-none">
-            <div class="row g-3">
-              <div class="col-lg-6">
-                <label for="repoFilter" class="form-label">Filter repositories</label>
-                <input id="repoFilter" class="form-control" placeholder="Search repositories" type="search" autocomplete="off">
-              </div>
-              <div class="col-lg-6">
-                <label for="commitMessage" class="form-label">Commit message</label>
-                <input id="commitMessage" class="form-control" placeholder="Add a short description" maxlength="200">
-              </div>
-            </div>
-
-            <div class="mt-3">
-              <label for="repoSelect" class="form-label">Repository</label>
-              <select id="repoSelect" class="form-select" size="6" aria-describedby="repoHelp"></select>
-              <div id="repoHelp" class="form-text">Select an existing repository where the site should be published.</div>
-            </div>
-
-            <div class="mt-3">
-              <label for="branchInput" class="form-label">Branch</label>
-              <input id="branchInput" class="form-control" list="branchOptions" placeholder="e.g. gh-pages" autocomplete="off">
-              <datalist id="branchOptions"></datalist>
-              <div class="form-text">Choose an existing branch or type a new branch name.</div>
-              <div id="branchExistsAlert" class="alert alert-warning mt-3 d-none" role="alert">
-                The selected branch already contains files. Enable “Overwrite existing content” to continue.
-              </div>
-              <div id="overwriteCheckWrapper" class="form-check form-switch mt-2 d-none">
-                <input class="form-check-input" type="checkbox" id="overwriteCheckbox">
-                <label class="form-check-label" for="overwriteCheckbox">Overwrite existing content</label>
-              </div>
-            </div>
-          </div>
-
-          <div id="githubProgressSection" class="d-none mt-4">
-            <div class="d-flex align-items-center gap-3">
-              <div class="progress flex-grow-1" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-                <div id="publishProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
-              </div>
-              <span id="publishProgressText" class="text-muted small">Preparing…</span>
-            </div>
-            <ul id="publishLog" class="list-group list-group-flush mt-3 small"></ul>
-          </div>
-
-          <div id="githubResultSection" class="d-none mt-4">
-            <div class="alert alert-success" role="alert" id="publishResultMessage">Site published successfully.</div>
-            <ul class="list-unstyled mb-0">
-              <li><a id="viewRepoLink" href="#" target="_blank" rel="noopener">View repository</a></li>
-              <li><a id="viewSiteLink" href="#" target="_blank" rel="noopener">View site</a></li>
-            </ul>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary" id="modalPrimaryButton" disabled>Publish</button>
+        <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+          <button id="uploadButton" type="button" class="btn btn-outline-light btn-sm">
+            <span class="icon me-2" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                <path
+                  d="M8 1.25a.75.75 0 0 1 .53.22l3 3a.75.75 0 1 1-1.06 1.06L8.75 3.94V9a.75.75 0 0 1-1.5 0V3.94L5.53 5.53A.75.75 0 1 1 4.47 4.47l3-3A.75.75 0 0 1 8 1.25ZM3 10.5a.75.75 0 0 1 .75.75v2h8.5v-2a.75.75 0 0 1 1.5 0v2A1.75 1.75 0 0 1 12.5 15H3.5A1.75 1.75 0 0 1 1.75 13.25v-2a.75.75 0 0 1 1.5 0v2H3v-2a.75.75 0 0 1 .75-.75Z"
+                ></path>
+              </svg>
+            </span>
+            <span>Upload package</span>
+          </button>
+          <button
+            id="publishButton"
+            type="button"
+            class="btn btn-outline-light btn-sm"
+            data-bs-toggle="modal"
+            data-bs-target="#publishModal"
+            disabled
+            aria-disabled="true"
+          >
+            <span class="icon me-2" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                <path
+                  d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2 0-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+                ></path>
+              </svg>
+            </span>
+            <span>Publish to GitHub</span>
+          </button>
         </div>
       </div>
-    </div>
-  </div>
+    </header>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  <script src="config.js"></script>
-  <script type="module" src="src/viewer.js"></script>
-</body>
+    <input
+      id="fileInput"
+      type="file"
+      class="visually-hidden"
+      accept=".elpx,.zip"
+      aria-hidden="true"
+    />
+
+    <main class="flex-grow-1 py-3">
+      <div class="container-fluid px-4 viewer-shell d-flex flex-column gap-3">
+        <div
+          class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center"
+        >
+          <p id="uploadHelp" class="text-muted small mb-0">
+            ELPX preview requires an exported site with <code>index.html</code>. ELP v2 packages are
+            not supported.
+          </p>
+          <div
+            id="statusMessage"
+            class="text-muted small text-sm-end"
+            role="status"
+            aria-live="polite"
+          ></div>
+        </div>
+
+        <section class="viewer-area flex-grow-1 d-flex flex-column" aria-label="Viewer area">
+          <ul class="nav nav-tabs" id="viewerTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link active"
+                id="preview-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#preview-panel"
+                type="button"
+                role="tab"
+                aria-controls="preview-panel"
+                aria-selected="true"
+              >
+                Preview
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="info-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#info-panel"
+                type="button"
+                role="tab"
+                aria-controls="info-panel"
+                aria-selected="false"
+              >
+                Info
+              </button>
+            </li>
+          </ul>
+          <div
+            class="tab-content bg-body border border-top-0 rounded-bottom shadow-sm flex-grow-1 d-flex"
+            id="viewerTabContent"
+          >
+            <div
+              class="tab-pane fade show active"
+              id="preview-panel"
+              role="tabpanel"
+              aria-labelledby="preview-tab"
+            >
+              <div class="preview-wrapper position-relative">
+                <div
+                  id="dropzone"
+                  class="dropzone"
+                  role="button"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  aria-describedby="uploadHelp"
+                >
+                  <div class="dropzone-icon" aria-hidden="true">📦</div>
+                  <p class="dropzone-title mb-1">
+                    Drop <strong>.elpx</strong> or <strong>.zip</strong> files to load
+                  </p>
+                  <p class="dropzone-subtitle mb-0">Your preview will open automatically.</p>
+                </div>
+                <div id="previewPlaceholder" class="preview-placeholder text-center text-muted">
+                  <p class="mb-1 fw-semibold">No package loaded yet</p>
+                  <p class="mb-0">
+                    Use the upload button or drop an <code>.elpx</code> file anywhere on the page to
+                    render the exported site here.
+                  </p>
+                </div>
+                <iframe
+                  id="previewFrame"
+                  title="ELPX preview"
+                  class="preview-frame"
+                  sandbox="allow-scripts allow-same-origin"
+                  hidden
+                ></iframe>
+              </div>
+            </div>
+            <div class="tab-pane fade" id="info-panel" role="tabpanel" aria-labelledby="info-tab">
+              <div id="infoContent" class="p-4">
+                <p class="text-muted mb-0">
+                  Package details and validation messages will appear here.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="py-4 bg-body-secondary mt-auto">
+      <div class="container text-center text-muted small">
+        <p class="mb-1">All processing happens locally. Nothing leaves your browser.</p>
+        <p class="mb-0">Built by Área de Tecnología Educativa — Gobierno de Canarias</p>
+      </div>
+    </footer>
+
+    <div
+      id="toastContainer"
+      class="toast-container position-fixed top-0 end-0 p-3"
+      style="z-index: 1100"
+    ></div>
+
+    <div
+      class="modal fade"
+      id="publishModal"
+      tabindex="-1"
+      aria-labelledby="publishModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="publishModalLabel">
+              <span aria-hidden="true" class="me-2">🐱</span>Publish to GitHub
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div id="authStatus" class="mb-3" role="status" aria-live="polite"></div>
+
+            <div id="deviceCodeSection" class="alert alert-info d-none" role="alert">
+              <div
+                class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3"
+              >
+                <div>
+                  <h6 class="alert-heading mb-1">Finish signing in</h6>
+                  <p class="mb-1">
+                    Open
+                    <a id="deviceVerificationUri" href="#" target="_blank" rel="noopener"
+                      >github.com/login/device</a
+                    >
+                    and enter this code:
+                  </p>
+                </div>
+                <div class="display-6 fw-bold" id="deviceUserCode" aria-live="assertive">—</div>
+              </div>
+              <p class="mb-0 small text-muted" id="deviceExpiryNotice"></p>
+            </div>
+
+            <div id="authControls" class="d-flex flex-wrap gap-2 mb-4">
+              <button type="button" class="btn btn-primary" id="startAuthButton">
+                Sign in with GitHub
+              </button>
+              <button type="button" class="btn btn-outline-secondary d-none" id="signOutButton">
+                Sign out
+              </button>
+            </div>
+
+            <div id="githubPublishForm" class="d-none">
+              <div class="row g-3">
+                <div class="col-lg-6">
+                  <label for="repoFilter" class="form-label">Filter repositories</label>
+                  <input
+                    id="repoFilter"
+                    class="form-control"
+                    placeholder="Search repositories"
+                    type="search"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="col-lg-6">
+                  <label for="commitMessage" class="form-label">Commit message</label>
+                  <input
+                    id="commitMessage"
+                    class="form-control"
+                    placeholder="Add a short description"
+                    maxlength="200"
+                  />
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <label for="repoSelect" class="form-label">Repository</label>
+                <select
+                  id="repoSelect"
+                  class="form-select"
+                  size="6"
+                  aria-describedby="repoHelp"
+                ></select>
+                <div id="repoHelp" class="form-text">
+                  Select an existing repository where the site should be published.
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <label for="branchInput" class="form-label">Branch</label>
+                <input
+                  id="branchInput"
+                  class="form-control"
+                  list="branchOptions"
+                  placeholder="e.g. gh-pages"
+                  autocomplete="off"
+                />
+                <datalist id="branchOptions"></datalist>
+                <div class="form-text">Choose an existing branch or type a new branch name.</div>
+                <div id="branchExistsAlert" class="alert alert-warning mt-3 d-none" role="alert">
+                  The selected branch already contains files. Enable “Overwrite existing content” to
+                  continue.
+                </div>
+                <div id="overwriteCheckWrapper" class="form-check form-switch mt-2 d-none">
+                  <input class="form-check-input" type="checkbox" id="overwriteCheckbox" />
+                  <label class="form-check-label" for="overwriteCheckbox"
+                    >Overwrite existing content</label
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div id="githubProgressSection" class="d-none mt-4">
+              <div class="d-flex align-items-center gap-3">
+                <div
+                  class="progress flex-grow-1"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <div
+                    id="publishProgressBar"
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <span id="publishProgressText" class="text-muted small">Preparing…</span>
+              </div>
+              <ul id="publishLog" class="list-group list-group-flush mt-3 small"></ul>
+            </div>
+
+            <div id="githubResultSection" class="d-none mt-4">
+              <div class="alert alert-success" role="alert" id="publishResultMessage">
+                Site published successfully.
+              </div>
+              <ul class="list-unstyled mb-0">
+                <li>
+                  <a id="viewRepoLink" href="#" target="_blank" rel="noopener">View repository</a>
+                </li>
+                <li><a id="viewSiteLink" href="#" target="_blank" rel="noopener">View site</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" id="modalPrimaryButton" disabled>
+              Publish
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+    <script src="config.js"></script>
+    <script type="module" src="src/viewer.js"></script>
+  </body>
 </html>

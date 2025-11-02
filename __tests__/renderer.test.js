@@ -86,7 +86,9 @@ describe('generateElpViewData', () => {
     const { htmlContent } = pages[0];
     expect(htmlContent.includes('<p>First block</p>')).toBe(true);
     expect(htmlContent.includes('<p>Second block</p>')).toBe(true);
-    expect(htmlContent.indexOf('<p>First block</p>')).toBeLessThan(htmlContent.indexOf('<p>Second block</p>'));
+    expect(htmlContent.indexOf('<p>First block</p>')).toBeLessThan(
+      htmlContent.indexOf('<p>Second block</p>')
+    );
   });
 
   test('builds nested page structure when parent identifiers are present', () => {

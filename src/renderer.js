@@ -119,7 +119,9 @@ function parseLegacyChildren(children, accumulator, parentId, orderBase) {
       .map((device) => extractHtmlFromLegacyNode(device))
       .filter((snippet) => snippet);
     const fallbackHtml = extractHtmlFromLegacyNode(entry);
-    const combinedHtml = (ideviceHtml.length ? ideviceHtml : [fallbackHtml]).filter(Boolean).join('\n\n');
+    const combinedHtml = (ideviceHtml.length ? ideviceHtml : [fallbackHtml])
+      .filter(Boolean)
+      .join('\n\n');
     const page = {
       id: safeId,
       title: title || safeId || 'Untitled page',
@@ -225,9 +227,10 @@ export function generateElpViewData(xmlDoc) {
   }
 
   const rootName = xmlDoc.documentElement.localName || xmlDoc.documentElement.tagName;
-  const flatPages = rootName && rootName.toLowerCase() === 'ode'
-    ? parseModernPages(xmlDoc)
-    : parseLegacyPages(xmlDoc);
+  const flatPages =
+    rootName && rootName.toLowerCase() === 'ode'
+      ? parseModernPages(xmlDoc)
+      : parseLegacyPages(xmlDoc);
 
   if (!flatPages.length) {
     return [];

@@ -32,7 +32,9 @@ describe('Viewer helpers', () => {
     const { fileMap, fileList, totalSize } = await buildFileRecords(entries, () => {});
     expect(fileMap.size).toBe(2);
     expect(hasIndexHtml(fileMap)).toBe(true);
-    expect(fileList[0]).toEqual(expect.objectContaining({ path: 'index.html', mimeType: 'text/html' }));
+    expect(fileList[0]).toEqual(
+      expect.objectContaining({ path: 'index.html', mimeType: 'text/html' })
+    );
     expect(totalSize).toBeGreaterThan(0);
   });
 

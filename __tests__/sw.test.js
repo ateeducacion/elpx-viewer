@@ -4,7 +4,11 @@ describe('Service worker helpers', () => {
   test('parsePreviewRequest extracts session id and path', () => {
     const url = new URL('https://example.com/preview/abc123/index.html');
     const result = parsePreviewRequest(url);
-    expect(result).toEqual({ sessionId: 'abc123', path: 'index.html', origin: 'https://example.com' });
+    expect(result).toEqual({
+      sessionId: 'abc123',
+      path: 'index.html',
+      origin: 'https://example.com'
+    });
   });
 
   test('parsePreviewRequest handles nested paths', () => {

@@ -5,7 +5,16 @@ import {
   parseContentXml
 } from './validator.js';
 
-const PRIMARY_PROPERTY_KEYS = new Set(['pp_title', 'pp_author', 'pp_lang', 'pp_description', 'license', 'title', 'language', 'version']);
+const PRIMARY_PROPERTY_KEYS = new Set([
+  'pp_title',
+  'pp_author',
+  'pp_lang',
+  'pp_description',
+  'license',
+  'title',
+  'language',
+  'version'
+]);
 const PRIMARY_RESOURCE_KEYS = new Set(['odeVersionName', 'odeId', 'odeVersionId']);
 
 function formatBytes(bytes) {
@@ -58,13 +67,19 @@ function buildMetadataSections(metadata) {
     ['Identifier', resources.odeId || resources.odeVersionId || '']
   ];
 
-  const extraPropertyEntries = Object.entries(properties).filter(([key]) => !PRIMARY_PROPERTY_KEYS.has(key));
-  const extraResourceEntries = Object.entries(resources).filter(([key]) => !PRIMARY_RESOURCE_KEYS.has(key));
+  const extraPropertyEntries = Object.entries(properties).filter(
+    ([key]) => !PRIMARY_PROPERTY_KEYS.has(key)
+  );
+  const extraResourceEntries = Object.entries(resources).filter(
+    ([key]) => !PRIMARY_RESOURCE_KEYS.has(key)
+  );
 
   const highlights = createDefinitionList(highlightEntries);
 
-  const extraProperties = extraPropertyEntries.length > 0 ? createKeyValueList(extraPropertyEntries) : null;
-  const extraResources = extraResourceEntries.length > 0 ? createKeyValueList(extraResourceEntries) : null;
+  const extraProperties =
+    extraPropertyEntries.length > 0 ? createKeyValueList(extraPropertyEntries) : null;
+  const extraResources =
+    extraResourceEntries.length > 0 ? createKeyValueList(extraResourceEntries) : null;
 
   return { highlights, extraProperties, extraResources };
 }
@@ -84,7 +99,8 @@ function createKeyValueList(entries) {
     } else if (typeof value === 'object') {
       try {
         val.textContent = JSON.stringify(value, null, 2);
-      } catch (error) {
+      } catch (serializationError) {
+        console.warn('Unable to serialise metadata value', serializationError);
         val.textContent = String(value);
       }
     } else {
@@ -107,7 +123,8 @@ function createMessagesList(messages = []) {
     item.className = 'list-group-item d-flex align-items-start gap-3';
     const badge = document.createElement('span');
     badge.className = `badge rounded-pill text-bg-${message.level === 'error' ? 'danger' : message.level === 'warning' ? 'warning' : 'secondary'}`;
-    badge.textContent = message.level === 'error' ? 'Error' : message.level === 'warning' ? 'Warning' : 'Info';
+    badge.textContent =
+      message.level === 'error' ? 'Error' : message.level === 'warning' ? 'Warning' : 'Info';
     const text = document.createElement('p');
     text.className = 'mb-0 flex-grow-1';
     text.textContent = message.text;
@@ -154,7 +171,8 @@ function createInventorySection(fileList = [], summary = {}) {
   const table = document.createElement('table');
   table.className = 'table table-sm table-striped align-middle mb-0';
   const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th scope="col">Path</th><th scope="col">Size</th><th scope="col">MIME type</th></tr>';
+  thead.innerHTML =
+    '<tr><th scope="col">Path</th><th scope="col">Size</th><th scope="col">MIME type</th></tr>';
   table.appendChild(thead);
   const tbody = document.createElement('tbody');
   const maxRows = Math.min(fileList.length, 500); // Keep rendering fast
@@ -240,7 +258,8 @@ export class InfoPanel {
   renderLoading() {
     const spinner = document.createElement('div');
     spinner.className = 'd-flex align-items-center gap-3';
-    spinner.innerHTML = '<div class="spinner-border text-secondary" role="status" aria-hidden="true"></div><p class="mb-0">Reading archive…</p>';
+    spinner.innerHTML =
+      '<div class="spinner-border text-secondary" role="status" aria-hidden="true"></div><p class="mb-0">Reading archive…</p>';
     this.root.appendChild(spinner);
   }
 
@@ -248,7 +267,8 @@ export class InfoPanel {
     const alert = document.createElement('div');
     alert.className = 'alert alert-warning';
     alert.role = 'alert';
-    alert.innerHTML = '<strong>ELP v2 is not supported by the viewer.</strong> You can still review the package metadata below.';
+    alert.innerHTML =
+      '<strong>ELP v2 is not supported by the viewer.</strong> You can still review the package metadata below.';
     this.root.appendChild(alert);
     if (this.state.metadata) {
       this.renderMetadataOnly(this.state);
@@ -311,7 +331,10 @@ export class InfoPanel {
       ['Package type', state.fileType === 'elpx' ? 'ELPX (exported site)' : 'ELP'],
       ['ELP version', state.elpVersion || '—'],
       ['Start file', state.startFile || 'index.html'],
-      ['Manifest', state.manifestKind === 'legacy' ? 'Legacy (contentv3.xml)' : 'Modern (content.xml)']
+      [
+        'Manifest',
+        state.manifestKind === 'legacy' ? 'Legacy (contentv3.xml)' : 'Modern (content.xml)'
+      ]
     ];
 
     overview.appendChild(createDefinitionList(entries));

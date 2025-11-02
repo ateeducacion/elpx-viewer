@@ -4,7 +4,12 @@ const REQUIRED_NAV_FIELDS = [
   ['odeNavStructureSyncOrder', 'odeNavStructureOrder']
 ];
 const REQUIRED_BLOCK_FIELDS = ['odeBlockId', 'blockName'];
-const REQUIRED_COMPONENT_FIELDS = ['odeIdeviceId', 'odeIdeviceTypeName', 'htmlView', 'jsonProperties'];
+const REQUIRED_COMPONENT_FIELDS = [
+  'odeIdeviceId',
+  'odeIdeviceTypeName',
+  'htmlView',
+  'jsonProperties'
+];
 
 export function parseContentXml(xmlString) {
   if (typeof xmlString !== 'string') {
@@ -64,7 +69,10 @@ export function checkPagePresence(xmlDoc) {
     };
   }
 
-  return { status: 'success', message: `Found ${pages.length} page${pages.length === 1 ? '' : 's'}.` };
+  return {
+    status: 'success',
+    message: `Found ${pages.length} page${pages.length === 1 ? '' : 's'}.`
+  };
 }
 
 export function extractPageTitles(xmlDoc) {
@@ -105,21 +113,27 @@ export function validateStructuralIntegrity(xmlDoc) {
   navStructures.forEach((navStructure, index) => {
     const missingNavFields = ensureChildTags(navStructure, REQUIRED_NAV_FIELDS);
     if (missingNavFields.length > 0) {
-      issues.push(`Navigation structure #${index + 1} is missing fields: ${missingNavFields.join(', ')}`);
+      issues.push(
+        `Navigation structure #${index + 1} is missing fields: ${missingNavFields.join(', ')}`
+      );
     }
 
     const pageStructures = navStructure.getElementsByTagName('odePagStructure');
     Array.from(pageStructures).forEach((pageStructure, blockIndex) => {
       const missingBlockFields = ensureChildTags(pageStructure, REQUIRED_BLOCK_FIELDS);
       if (missingBlockFields.length > 0) {
-        issues.push(`Block #${blockIndex + 1} in page #${index + 1} is missing fields: ${missingBlockFields.join(', ')}`);
+        issues.push(
+          `Block #${blockIndex + 1} in page #${index + 1} is missing fields: ${missingBlockFields.join(', ')}`
+        );
       }
 
       const components = pageStructure.getElementsByTagName('odeComponent');
       Array.from(components).forEach((component, componentIndex) => {
         const missingComponentFields = ensureChildTags(component, REQUIRED_COMPONENT_FIELDS);
         if (missingComponentFields.length > 0) {
-          issues.push(`Component #${componentIndex + 1} in block #${blockIndex + 1} of page #${index + 1} is missing fields: ${missingComponentFields.join(', ')}`);
+          issues.push(
+            `Component #${componentIndex + 1} in block #${blockIndex + 1} of page #${index + 1} is missing fields: ${missingComponentFields.join(', ')}`
+          );
         }
       });
     });
@@ -159,7 +173,7 @@ export function extractResourcePaths(xmlDoc) {
     try {
       const json = JSON.parse(text);
       collectPathsFromJson(json, resourcePaths);
-    } catch (error) {
+    } catch {
       let match;
       while ((match = RESOURCE_ATTRIBUTE_REGEX.exec(text)) !== null) {
         const value = match[1];

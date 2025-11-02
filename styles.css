@@ -1,14 +1,23 @@
 body {
   margin: 0;
   padding-top: var(--sd-header-height, 116px);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .dropzone {
   display: none;
   position: fixed;
-  inset: 0;
-  border-radius: 0;
+  top: clamp(12px, 5vw, 50px);
+  right: clamp(12px, 5vw, 50px);
+  bottom: clamp(12px, 5vw, 50px);
+  left: clamp(12px, 5vw, 50px);
+  border-radius: 1rem;
   border: 2px dashed rgba(249, 249, 251, 0.4);
   background-color: rgba(43, 42, 51, 0.92);
   color: #f9f9fb;
@@ -19,7 +28,10 @@ body {
   text-align: center;
   cursor: pointer;
   z-index: 2000;
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
   box-sizing: border-box;
   pointer-events: none;
 }

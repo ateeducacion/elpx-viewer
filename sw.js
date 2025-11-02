@@ -46,9 +46,7 @@ function storeSession(sessionId, files) {
 }
 
 const scope = typeof self !== 'undefined' ? self : null;
-const scopeBasePath = scope
-  ? scope.location.pathname.replace(/[^/]*$/, '') || '/'
-  : '/';
+const scopeBasePath = scope ? scope.location.pathname.replace(/[^/]*$/, '') || '/' : '/';
 
 if (scope) {
   scope.addEventListener('install', (event) => {
@@ -56,10 +54,12 @@ if (scope) {
   });
 
   scope.addEventListener('activate', (event) => {
-    event.waitUntil((async () => {
-      cleanStaleSessions();
-      await scope.clients.claim();
-    })());
+    event.waitUntil(
+      (async () => {
+        cleanStaleSessions();
+        await scope.clients.claim();
+      })()
+    );
   });
 
   scope.addEventListener('message', (event) => {
@@ -89,24 +89,27 @@ if (scope) {
       return;
     }
 
-    event.respondWith((async () => {
-      const session = sessions.get(parsed.sessionId);
-      if (!session) {
-        return new Response('Not found', { status: 404 });
-      }
-      session.updatedAt = Date.now();
-      const record = session.files.get(parsed.path) || session.files.get(decodeURIComponent(parsed.path));
-      if (!record) {
-        return new Response('Not found', { status: 404 });
-      }
-      return new Response(record.blob, {
-        status: 200,
-        headers: {
-          'Content-Type': record.mimeType,
-          'Cache-Control': 'no-store'
+    event.respondWith(
+      (async () => {
+        const session = sessions.get(parsed.sessionId);
+        if (!session) {
+          return new Response('Not found', { status: 404 });
         }
-      });
-    })());
+        session.updatedAt = Date.now();
+        const record =
+          session.files.get(parsed.path) || session.files.get(decodeURIComponent(parsed.path));
+        if (!record) {
+          return new Response('Not found', { status: 404 });
+        }
+        return new Response(record.blob, {
+          status: 200,
+          headers: {
+            'Content-Type': record.mimeType,
+            'Cache-Control': 'no-store'
+          }
+        });
+      })()
+    );
   });
 
   scope.addEventListener('periodicsync', cleanStaleSessions);

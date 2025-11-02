@@ -26,8 +26,12 @@ describe('GitHub helper utilities', () => {
   });
 
   test('computePagesUrl builds canonical GitHub Pages URLs', () => {
-    expect(computePagesUrl('AteEducacion', 'elpx-viewer')).toBe('https://ateeducacion.github.io/elpx-viewer/');
-    expect(computePagesUrl('AteEducacion', 'ateeducacion.github.io')).toBe('https://ateeducacion.github.io/');
+    expect(computePagesUrl('AteEducacion', 'elpx-viewer')).toBe(
+      'https://ateeducacion.github.io/elpx-viewer/'
+    );
+    expect(computePagesUrl('AteEducacion', 'ateeducacion.github.io')).toBe(
+      'https://ateeducacion.github.io/'
+    );
     expect(computePagesUrl('', 'repo')).toBeNull();
   });
 });
