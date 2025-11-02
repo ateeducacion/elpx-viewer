@@ -7,43 +7,48 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" href="favicon.ico">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
-  <header class="py-4 shadow-sm bg-body">
-    <div class="container">
-      <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-        <div>
-          <h1 class="h2 mb-1">eXeLearning ELPX Viewer</h1>
-          <p class="text-muted mb-0">Preview and validate eXeLearning 3.0 packages entirely in your browser.</p>
-        </div>
-        <div class="toolbar d-flex align-items-center gap-3">
-          <button id="publishButton" type="button" class="btn btn-outline-dark d-none" data-bs-toggle="modal" data-bs-target="#publishModal" disabled>
-            <span class="me-2" aria-hidden="true">🐱</span>
-            <span>Publish to GitHub</span>
-          </button>
-        </div>
+  <header id="sdHeader" class="shadow-sm">
+    <div class="container-fluid d-flex flex-wrap align-items-center gap-3">
+      <div class="sd-header-copy">
+        <span class="sd-header-title d-block">eXeLearning ELPX Viewer</span>
+        <span class="sd-header-subtitle d-block">Preview and validate eXeLearning 3.0 packages entirely in your browser.</span>
+      </div>
+      <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+        <button id="uploadButton" type="button" class="btn btn-outline-light btn-sm">
+          <span class="icon me-2" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+              <path d="M8 1.25a.75.75 0 0 1 .53.22l3 3a.75.75 0 1 1-1.06 1.06L8.75 3.94V9a.75.75 0 0 1-1.5 0V3.94L5.53 5.53A.75.75 0 1 1 4.47 4.47l3-3A.75.75 0 0 1 8 1.25ZM3 10.5a.75.75 0 0 1 .75.75v2h8.5v-2a.75.75 0 0 1 1.5 0v2A1.75 1.75 0 0 1 12.5 15H3.5A1.75 1.75 0 0 1 1.75 13.25v-2a.75.75 0 0 1 1.5 0v2H3v-2a.75.75 0 0 1 .75-.75Z"></path>
+            </svg>
+          </span>
+          <span>Upload package</span>
+        </button>
+        <button id="publishButton" type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#publishModal" disabled aria-disabled="true">
+          <span class="icon me-2" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2 0-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
+            </svg>
+          </span>
+          <span>Publish to GitHub</span>
+        </button>
       </div>
     </div>
   </header>
 
-  <main class="flex-grow-1 py-4">
-    <div class="container">
-      <section id="uploadSection" class="card shadow-sm">
-        <div class="card-body text-center">
-          <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-describedby="uploadHelp" aria-label="Drop .elpx or .zip files here, or browse to select one">
-            <div class="dropzone-icon" aria-hidden="true">📦</div>
-            <p class="dropzone-title">Drop <strong>.elpx</strong> or <strong>.zip</strong> files here</p>
-            <p class="dropzone-subtitle">or click to browse your device</p>
-            <input id="fileInput" type="file" class="visually-hidden" accept=".elpx,.zip" aria-hidden="true">
-          </div>
-          <p id="uploadHelp" class="mt-3 text-muted small">ELPX preview requires an exported site with <code>index.html</code>. ELP v2 packages are not supported.</p>
-          <div id="statusMessage" class="mt-2 text-muted small" role="status" aria-live="polite"></div>
-        </div>
-      </section>
+  <input id="fileInput" type="file" class="visually-hidden" accept=".elpx,.zip" aria-hidden="true">
 
-      <section class="mt-4" aria-label="Viewer area">
+  <main class="flex-grow-1 py-3">
+    <div class="container-fluid px-4 viewer-shell d-flex flex-column gap-3">
+      <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center">
+        <p id="uploadHelp" class="text-muted small mb-0">ELPX preview requires an exported site with <code>index.html</code>. ELP v2 packages are not supported.</p>
+        <div id="statusMessage" class="text-muted small text-sm-end" role="status" aria-live="polite"></div>
+      </div>
+
+      <section class="viewer-area flex-grow-1 d-flex flex-column" aria-label="Viewer area">
         <ul class="nav nav-tabs" id="viewerTabs" role="tablist">
           <li class="nav-item" role="presentation">
             <button class="nav-link active" id="preview-tab" data-bs-toggle="tab" data-bs-target="#preview-panel" type="button" role="tab" aria-controls="preview-panel" aria-selected="true">Preview</button>
@@ -52,12 +57,17 @@
             <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info-panel" type="button" role="tab" aria-controls="info-panel" aria-selected="false">Info</button>
           </li>
         </ul>
-        <div class="tab-content bg-body border border-top-0 rounded-bottom shadow-sm" id="viewerTabContent">
+        <div class="tab-content bg-body border border-top-0 rounded-bottom shadow-sm flex-grow-1 d-flex" id="viewerTabContent">
           <div class="tab-pane fade show active" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab">
             <div class="preview-wrapper position-relative">
-              <div id="previewPlaceholder" class="preview-placeholder p-5 text-center text-muted">
+              <div id="dropzone" class="dropzone" role="button" tabindex="-1" aria-hidden="true" aria-describedby="uploadHelp">
+                <div class="dropzone-icon" aria-hidden="true">📦</div>
+                <p class="dropzone-title mb-1">Drop <strong>.elpx</strong> or <strong>.zip</strong> files to load</p>
+                <p class="dropzone-subtitle mb-0">Your preview will open automatically.</p>
+              </div>
+              <div id="previewPlaceholder" class="preview-placeholder text-center text-muted">
                 <p class="mb-1 fw-semibold">No package loaded yet</p>
-                <p class="mb-0">Select an <code>.elpx</code> file to render the exported site here.</p>
+                <p class="mb-0">Use the upload button or drop an <code>.elpx</code> file anywhere on the page to render the exported site here.</p>
               </div>
               <iframe id="previewFrame" title="ELPX preview" class="preview-frame" sandbox="allow-scripts allow-same-origin" hidden></iframe>
             </div>
@@ -111,13 +121,11 @@
             <div class="row g-3">
               <div class="col-lg-6">
                 <label for="repoFilter" class="form-label">Filter repositories</label>
-                <input type="search" id="repoFilter" class="form-control" placeholder="Start typing to filter…" autocomplete="off">
+                <input id="repoFilter" class="form-control" placeholder="Search repositories" type="search" autocomplete="off">
               </div>
-              <div class="col-lg-6 d-flex align-items-end justify-content-lg-end">
-                <div class="btn-group" role="group" aria-label="Repository actions">
-                  <a class="btn btn-sm btn-outline-secondary" href="https://github.com/new" target="_blank" rel="noopener">Create new repo</a>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" id="reloadReposButton">Reload repos</button>
-                </div>
+              <div class="col-lg-6">
+                <label for="commitMessage" class="form-label">Commit message</label>
+                <input id="commitMessage" class="form-control" placeholder="Add a short description" maxlength="200">
               </div>
             </div>
 

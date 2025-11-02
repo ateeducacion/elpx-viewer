@@ -27,6 +27,8 @@ const previewPlaceholder = document.getElementById('previewPlaceholder');
 const statusMessage = document.getElementById('statusMessage');
 const toastContainer = document.getElementById('toastContainer');
 const publishButton = document.getElementById('publishButton');
+const uploadButton = document.getElementById('uploadButton');
+const appHeader = document.getElementById('sdHeader');
 
 const infoPanel = new InfoPanel(document.getElementById('infoContent'));
 let githubPublisher = null;
@@ -75,6 +77,14 @@ function setPreviewState({ showFrame, src }) {
       previewFrame.src = 'about:blank';
     }
   }
+}
+
+function updateHeaderOffset() {
+  if (!appHeader) {
+    return;
+  }
+  const height = appHeader.offsetHeight;
+  document.documentElement.style.setProperty('--sd-header-height', `${height}px`);
 }
 
 function showToast(message, variant = 'danger') {
@@ -208,8 +218,8 @@ function resetInterface() {
   infoPanel.update({ status: 'idle' });
   releaseCurrentSession();
   if (publishButton) {
-    publishButton.classList.add('d-none');
     publishButton.disabled = true;
+    publishButton.setAttribute('aria-disabled', 'true');
   }
   if (githubPublisher) {
     githubPublisher.clearArchive();
@@ -315,7 +325,6 @@ async function handleElpxFile(file) {
   infoPanel.setDownloadHandler(() => downloadFileList(currentSession));
 
   if (publishButton) {
-    publishButton.classList.remove('d-none');
     publishButton.disabled = false;
     publishButton.removeAttribute('aria-disabled');
   }
@@ -376,8 +385,8 @@ async function handleElpFile(file) {
   infoPanel.setDownloadHandler(null);
 
   if (publishButton) {
-    publishButton.classList.add('d-none');
     publishButton.disabled = true;
+    publishButton.setAttribute('aria-disabled', 'true');
   }
 
   if (isUnsupported) {
@@ -426,8 +435,8 @@ async function handleFile(file) {
     }
     releaseCurrentSession();
     if (publishButton) {
-      publishButton.classList.add('d-none');
       publishButton.disabled = true;
+      publishButton.setAttribute('aria-disabled', 'true');
     }
     if (githubPublisher) {
       githubPublisher.clearArchive();
@@ -444,8 +453,8 @@ async function handleFile(file) {
     setPreviewState({ showFrame: false });
     updateStatus('');
     if (publishButton) {
-      publishButton.classList.add('d-none');
       publishButton.disabled = true;
+      publishButton.setAttribute('aria-disabled', 'true');
     }
   }
 }
@@ -455,43 +464,112 @@ function setupDragAndDrop() {
     return;
   }
 
+  dropzone.setAttribute('aria-hidden', 'true');
+
+  let dragDepth = 0;
+
+  const isFileDrag = (event) => {
+    const types = event.dataTransfer?.types;
+    if (!types) {
+      return false;
+    }
+    return Array.from(types).includes('Files');
+  };
+
+  const showOverlay = () => {
+    dropzone.classList.add('is-visible');
+    dropzone.setAttribute('aria-hidden', 'false');
+  };
+
+  const hideOverlay = () => {
+    dropzone.classList.remove('is-visible', 'is-dragover');
+    dropzone.setAttribute('aria-hidden', 'true');
+  };
+
   const preventDefault = (event) => {
     event.preventDefault();
     event.stopPropagation();
   };
 
-  ['dragenter', 'dragover'].forEach((eventName) => {
-    dropzone.addEventListener(eventName, (event) => {
-      preventDefault(event);
-      dropzone.classList.add('is-dragover');
-    });
+  document.addEventListener('dragenter', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    dragDepth += 1;
+    showOverlay();
   });
 
-  ['dragleave', 'drop'].forEach((eventName) => {
-    dropzone.addEventListener(eventName, (event) => {
-      preventDefault(event);
-      dropzone.classList.remove('is-dragover');
-    });
-  });
-
-  dropzone.addEventListener('click', () => fileInput.click());
-  dropzone.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      fileInput.click();
+  document.addEventListener('dragleave', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    dragDepth = Math.max(dragDepth - 1, 0);
+    if (dragDepth === 0) {
+      hideOverlay();
     }
   });
 
+  document.addEventListener('dragover', (event) => {
+    if (isFileDrag(event)) {
+      preventDefault(event);
+    }
+  });
+
+  document.addEventListener('drop', (event) => {
+    if (isFileDrag(event)) {
+      preventDefault(event);
+    }
+    dragDepth = 0;
+    hideOverlay();
+  });
+
+  dropzone.addEventListener('dragenter', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    preventDefault(event);
+    dropzone.classList.add('is-dragover');
+  });
+
+  dropzone.addEventListener('dragover', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    preventDefault(event);
+    dropzone.classList.add('is-dragover');
+  });
+
+  dropzone.addEventListener('dragleave', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    preventDefault(event);
+    dropzone.classList.remove('is-dragover');
+  });
+
   dropzone.addEventListener('drop', (event) => {
+    if (!isFileDrag(event)) {
+      return;
+    }
+    preventDefault(event);
+    dropzone.classList.remove('is-dragover');
     const files = event.dataTransfer?.files;
+    hideOverlay();
+    dragDepth = 0;
     if (files && files.length > 0) {
       void handleFile(files[0]);
     }
   });
 
+  dropzone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
   fileInput.addEventListener('change', (event) => {
     const files = event.target.files;
     if (files && files.length > 0) {
+      hideOverlay();
+      dragDepth = 0;
       void handleFile(files[0]);
       fileInput.value = '';
     }
@@ -499,8 +577,22 @@ function setupDragAndDrop() {
 }
 
 async function initialise() {
+  updateHeaderOffset();
+  window.addEventListener('resize', updateHeaderOffset);
+  window.addEventListener('load', updateHeaderOffset);
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(updateHeaderOffset).catch(() => {});
+  }
+
   resetInterface();
   setupDragAndDrop();
+
+  if (uploadButton && fileInput) {
+    uploadButton.addEventListener('click', () => {
+      fileInput.click();
+    });
+  }
+
   await registerServiceWorker();
   try {
     await ensureServiceWorkerController();
