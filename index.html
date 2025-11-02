@@ -17,6 +17,11 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="publish-modal.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="bg-body-tertiary d-flex flex-column min-vh-100">
@@ -37,7 +42,7 @@
                 ></path>
               </svg>
             </span>
-            <span>Upload package</span>
+            <span>Load package</span>
           </button>
           <button
             id="publishButton"
@@ -145,7 +150,7 @@
                 <div id="previewPlaceholder" class="preview-placeholder text-center text-muted">
                   <p class="mb-1 fw-semibold">No package loaded yet</p>
                   <p class="mb-0">
-                    Use the upload button or drop an <code>.elpx</code> file anywhere on the page to
+                    Use the load button or drop an <code>.elpx</code> file anywhere on the page to
                     render the exported site here.
                   </p>
                 </div>
@@ -190,12 +195,10 @@
       aria-labelledby="publishModalLabel"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="publishModalLabel">
-              <span aria-hidden="true" class="me-2">🐱</span>Publish to GitHub
-            </h5>
+            <h1 class="modal-title fs-5" id="publishModalLabel">Publish to GitHub</h1>
             <button
               type="button"
               class="btn-close"
@@ -204,130 +207,193 @@
             ></button>
           </div>
           <div class="modal-body">
-            <div id="authStatus" class="mb-3" role="status" aria-live="polite"></div>
+            <section
+              class="d-flex align-items-center gap-3 mb-3"
+              id="publishAccount"
+              role="status"
+              aria-live="polite"
+            >
+              <img
+                id="publishAccountAvatar"
+                src=""
+                alt=""
+                class="rounded-circle flex-shrink-0 d-none"
+                width="48"
+                height="48"
+              />
+              <div class="flex-grow-1">
+                <p id="publishAccountName" class="lh-sm mb-1 fw-semibold text-truncate">
+                  Not signed in.
+                </p>
+                <p id="publishAccountStatus" class="mb-1 small text-muted">
+                  Sign in with GitHub to continue.
+                </p>
+                <p class="mb-0 small text-warning fw-semibold" id="publishExperimentalHint">
+                  GitHub publishing is experimental. Review your repository before sharing.
+                </p>
+                <div class="mt-2">
+                  <button type="button" class="btn btn-primary btn-sm" id="publishSignIn">
+                    Sign in with GitHub
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm d-none"
+                    id="publishSignOut"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            </section>
 
-            <div id="deviceCodeSection" class="alert alert-info d-none" role="alert">
+            <div class="alert alert-info d-none" id="publishDevicePanel" role="alert">
+              <p class="mb-1 small">
+                Open
+                <a
+                  id="publishDeviceLink"
+                  href="https://github.com/login/device"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  github.com/login/device
+                </a>
+                and enter this code:
+              </p>
+              <p class="display-6 fw-bold mb-1" id="publishDeviceCode" aria-live="assertive">—</p>
+              <p class="mb-0 small text-muted" id="publishDeviceExpiry"></p>
+            </div>
+
+            <div id="publishFormWrapper" class="d-none" aria-hidden="true">
+            <section class="mb-4">
+              <div class="mb-2">
+                <label for="publishRepo" class="form-label">Repository</label>
+                <select class="form-select" id="publishRepo" data-placeholder="Search repositories">
+                  <option value="" selected disabled>Search repositories</option>
+                </select>
+                <div class="form-text">
+                  A repository is your project folder on GitHub. Search for an existing project or
+                  type a new name to create it.
+                </div>
+              </div>
+              <div id="publishRepoValidation" class="invalid-feedback d-block" hidden></div>
+              <div id="publishNewRepoCard" class="card border-primary-subtle shadow-sm mt-3" hidden>
+                <div class="card-body py-3">
+                  <h2 class="card-title h6 mb-3">Create new repository</h2>
+                  <div class="mb-3">
+                    <span class="form-label d-block">Owner</span>
+                    <div id="publishOwnerOptions" class="d-flex flex-wrap gap-2"></div>
+                    <div id="publishOwnerValidation" class="invalid-feedback d-block" hidden></div>
+                  </div>
+                  <div class="row g-3 align-items-center">
+                    <div class="col-md-6">
+                      <div class="form-check form-switch">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="publishRepoVisibility"
+                          checked
+                        />
+                        <label class="form-check-label" for="publishRepoVisibility">
+                          Private repository
+                        </label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="publishRepoReadme"
+                          checked
+                        />
+                        <label class="form-check-label" for="publishRepoReadme">
+                          Initialize with README
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="mb-4">
+              <div class="mb-2">
+                <label for="publishBranch" class="form-label">Branch</label>
+                <select class="form-select" id="publishBranch" data-placeholder="Choose a branch">
+                  <option value="gh-pages" selected>gh-pages</option>
+                </select>
+                <div class="form-text">
+                  Default branch is gh-pages for publishing. Type a new branch to publish elsewhere.
+                </div>
+              </div>
+              <div id="publishBranchHint" class="small text-muted" aria-live="polite"></div>
               <div
-                class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-3"
+                class="alert alert-warning mt-3 mb-0 d-none"
+                id="publishBranchWarning"
+                role="alert"
               >
-                <div>
-                  <h6 class="alert-heading mb-1">Finish signing in</h6>
-                  <p class="mb-1">
-                    Open
-                    <a id="deviceVerificationUri" href="#" target="_blank" rel="noopener"
-                      >github.com/login/device</a
-                    >
-                    and enter this code:
-                  </p>
-                </div>
-                <div class="display-6 fw-bold" id="deviceUserCode" aria-live="assertive">—</div>
+                This branch already has files. Tick the box below to allow overwriting.
               </div>
-              <p class="mb-0 small text-muted" id="deviceExpiryNotice"></p>
-            </div>
-
-            <div id="authControls" class="d-flex flex-wrap gap-2 mb-4">
-              <button type="button" class="btn btn-primary" id="startAuthButton">
-                Sign in with GitHub
-              </button>
-              <button type="button" class="btn btn-outline-secondary d-none" id="signOutButton">
-                Sign out
-              </button>
-            </div>
-
-            <div id="githubPublishForm" class="d-none">
-              <div class="row g-3">
-                <div class="col-lg-6">
-                  <label for="repoFilter" class="form-label">Filter repositories</label>
-                  <input
-                    id="repoFilter"
-                    class="form-control"
-                    placeholder="Search repositories"
-                    type="search"
-                    autocomplete="off"
-                  />
-                </div>
-                <div class="col-lg-6">
-                  <label for="commitMessage" class="form-label">Commit message</label>
-                  <input
-                    id="commitMessage"
-                    class="form-control"
-                    placeholder="Add a short description"
-                    maxlength="200"
-                  />
-                </div>
-              </div>
-
-              <div class="mt-3">
-                <label for="repoSelect" class="form-label">Repository</label>
-                <select
-                  id="repoSelect"
-                  class="form-select"
-                  size="6"
-                  aria-describedby="repoHelp"
-                ></select>
-                <div id="repoHelp" class="form-text">
-                  Select an existing repository where the site should be published.
-                </div>
-              </div>
-
-              <div class="mt-3">
-                <label for="branchInput" class="form-label">Branch</label>
+              <div class="form-check form-switch mt-3 d-none" id="publishOverwriteGroup">
                 <input
-                  id="branchInput"
-                  class="form-control"
-                  list="branchOptions"
-                  placeholder="e.g. gh-pages"
+                  class="form-check-input"
+                  type="checkbox"
+                  id="publishOverwrite"
                   autocomplete="off"
                 />
-                <datalist id="branchOptions"></datalist>
-                <div class="form-text">Choose an existing branch or type a new branch name.</div>
-                <div id="branchExistsAlert" class="alert alert-warning mt-3 d-none" role="alert">
-                  The selected branch already contains files. Enable “Overwrite existing content” to
-                  continue.
-                </div>
-                <div id="overwriteCheckWrapper" class="form-check form-switch mt-2 d-none">
-                  <input class="form-check-input" type="checkbox" id="overwriteCheckbox" />
-                  <label class="form-check-label" for="overwriteCheckbox"
-                    >Overwrite existing content</label
-                  >
-                </div>
+                <label class="form-check-label fw-semibold text-danger" for="publishOverwrite">
+                  I understand this will overwrite existing content on this branch
+                </label>
               </div>
-            </div>
+            </section>
 
-            <div id="githubProgressSection" class="d-none mt-4">
-              <div class="d-flex align-items-center gap-3">
+            <section class="mb-2 d-none" id="publishProgressSection">
+              <div class="progress mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100">
                 <div
-                  class="progress flex-grow-1"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                >
-                  <div
-                    id="publishProgressBar"
-                    class="progress-bar progress-bar-striped progress-bar-animated"
-                    style="width: 0%"
-                  ></div>
-                </div>
-                <span id="publishProgressText" class="text-muted small">Preparing…</span>
+                  class="progress-bar progress-bar-striped progress-bar-animated"
+                  style="width: 0%"
+                  id="publishProgressBar"
+                  aria-live="polite"
+                  aria-label="Publishing progress"
+                ></div>
               </div>
-              <ul id="publishLog" class="list-group list-group-flush mt-3 small"></ul>
+              <p class="small text-muted mb-2" id="publishProgressMessage" aria-live="polite">
+                Preparing…
+              </p>
+              <ul class="list-unstyled small mb-3" id="publishLog" aria-live="polite"></ul>
+              <div
+                class="alert alert-success d-none align-items-start gap-3"
+                id="publishSuccessAlert"
+                role="status"
+              >
+                <div class="flex-grow-1">
+                  <strong>Site published successfully.</strong>
+                  <div class="mt-2 d-flex flex-wrap gap-2">
+                    <a href="#" id="publishRepoLink" target="_blank" rel="noopener"
+                      >Open repository</a
+                    >
+                    <a href="#" id="publishSiteLink" target="_blank" rel="noopener">View site</a>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="btn-close"
+                  id="publishSuccessDismiss"
+                  aria-label="Dismiss"
+                ></button>
+              </div>
+            </section>
             </div>
 
-            <div id="githubResultSection" class="d-none mt-4">
-              <div class="alert alert-success" role="alert" id="publishResultMessage">
-                Site published successfully.
-              </div>
-              <ul class="list-unstyled mb-0">
-                <li>
-                  <a id="viewRepoLink" href="#" target="_blank" rel="noopener">View repository</a>
-                </li>
-                <li><a id="viewSiteLink" href="#" target="_blank" rel="noopener">View site</a></li>
-              </ul>
+            <div id="publishErrorAlert" class="alert alert-danger d-none" role="alert">
+              Something went wrong. Please try again.
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" id="modalPrimaryButton" disabled>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              Close
+            </button>
+            <button type="button" class="btn btn-primary" id="publishSubmit" disabled>
               Publish
             </button>
           </div>
@@ -340,6 +406,9 @@
       integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
       crossorigin="anonymous"
     ></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="publish-modal.js" defer></script>
     <script src="config.js"></script>
     <script type="module" src="src/viewer.js"></script>
   </body>

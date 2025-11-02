@@ -68,10 +68,29 @@ if (scope) {
       return;
     }
     if (data.type === 'register-session') {
+      const replyPort = data.replyPort || (event.ports && event.ports[0]);
       if (!data.sessionId || !Array.isArray(data.files)) {
+        if (replyPort) {
+          if (typeof replyPort.start === 'function') {
+            replyPort.start();
+          }
+          replyPort.postMessage({
+            type: 'register-session:error',
+            message: 'Invalid session payload'
+          });
+        }
         return;
       }
       storeSession(data.sessionId, data.files);
+      if (replyPort) {
+        if (typeof replyPort.start === 'function') {
+          replyPort.start();
+        }
+        replyPort.postMessage({
+          type: 'register-session:ready',
+          sessionId: data.sessionId
+        });
+      }
     } else if (data.type === 'cleanup-sessions') {
       cleanStaleSessions();
     } else if (data.type === 'invalidate-session' && data.sessionId) {

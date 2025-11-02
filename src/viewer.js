@@ -12,7 +12,6 @@ import {
   validateStructuralIntegrity
 } from './validator.js';
 import { InfoPanel, formatBytes } from './info.js';
-import { GitHubPublisher } from './github.js';
 import { detectFileType, hasIndexHtml, buildFileRecords } from './viewer-utils.js';
 
 const dropzone = document.getElementById('dropzone');
@@ -26,8 +25,9 @@ const uploadButton = document.getElementById('uploadButton');
 const appHeader = document.getElementById('sdHeader');
 
 const infoPanel = new InfoPanel(document.getElementById('infoContent'));
-let githubPublisher = null;
 let currentSession = null;
+
+const ERROR_SILENCE_PATTERNS = [/content-scripts\.js/i, /:has-text\(/i, /##body:has-text/i];
 
 function getAppBaseUrl() {
   return new URL('./', window.location.href);
@@ -43,6 +43,63 @@ function postToServiceWorker(message) {
   }
 }
 
+async function registerPreviewSession(sessionId, files) {
+  if (!('serviceWorker' in navigator)) {
+    return;
+  }
+  const controller = navigator.serviceWorker.controller;
+  if (!controller) {
+    throw new Error('Preview service worker is not available.');
+  }
+  await new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => {
+      channel.port1.onmessage = null;
+      console.warn('Preview session acknowledgement timed out. Proceeding anyway.');
+      try {
+        channel.port1.close();
+      } catch (error) {
+        // ignore
+      }
+      resolve();
+    }, SW_ACK_TIMEOUT);
+    channel.port1.onmessage = (event) => {
+      const { data } = event;
+      if (!data || typeof data !== 'object') {
+        return;
+      }
+      if (data.type === 'register-session:ready' && data.sessionId === sessionId) {
+        clearTimeout(timer);
+        channel.port1.onmessage = null;
+        try {
+          channel.port1.close();
+        } catch (error) {
+          // ignore
+        }
+        resolve();
+      } else if (data.type === 'register-session:error') {
+        clearTimeout(timer);
+        channel.port1.onmessage = null;
+        try {
+          channel.port1.close();
+        } catch (error) {
+          // ignore
+        }
+        reject(new Error(data.message || 'The preview session could not be prepared.'));
+      }
+    };
+    controller.postMessage(
+      {
+        type: 'register-session',
+        sessionId,
+        files,
+        replyPort: channel.port2
+      },
+      [channel.port2]
+    );
+  });
+}
+
 function releaseCurrentSession() {
   if (currentSession?.sessionId) {
     postToServiceWorker({ type: 'invalidate-session', sessionId: currentSession.sessionId });
@@ -53,6 +110,34 @@ function releaseCurrentSession() {
 function updateStatus(message) {
   if (!statusMessage) return;
   statusMessage.textContent = message || '';
+}
+
+function shouldSilenceError(source, message) {
+  const haystack = `${source || ''} ${message || ''}`;
+  return ERROR_SILENCE_PATTERNS.some((pattern) => pattern.test(haystack));
+}
+
+function installErrorGuards() {
+  if (installErrorGuards.installed) {
+    return;
+  }
+  window.addEventListener(
+    'error',
+    (event) => {
+      if (shouldSilenceError(event.filename, event.message)) {
+        event.preventDefault();
+      }
+    },
+    true
+  );
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason =
+      event.reason && typeof event.reason === 'object' ? event.reason.message : event.reason;
+    if (shouldSilenceError('', String(reason || ''))) {
+      event.preventDefault();
+    }
+  });
+  installErrorGuards.installed = true;
 }
 
 function setPreviewState({ showFrame, src }) {
@@ -106,6 +191,86 @@ function showToast(message, variant = 'danger') {
   });
 }
 
+const GITHUB_TOKEN_KEY = 'github_device_token';
+const GITHUB_USER_KEY = 'github_device_user';
+const ENCODE_CHUNK_SIZE = 25;
+const SW_ACK_TIMEOUT = 5000;
+const SW_CONTROLLER_TIMEOUT = 6000;
+
+function getStoredGitHubToken() {
+  const directToken = window.APP_CONFIG?.githubToken;
+  if (typeof directToken === 'string' && directToken.trim()) {
+    return directToken.trim();
+  }
+  return sessionStorage.getItem(GITHUB_TOKEN_KEY) || '';
+}
+
+function clearStoredGitHubAuth(showNotice = false) {
+  sessionStorage.removeItem(GITHUB_TOKEN_KEY);
+  sessionStorage.removeItem(GITHUB_USER_KEY);
+  if (showNotice) {
+    showToast('Signed out from GitHub.', 'info');
+  }
+}
+
+async function blobToBase64(blob) {
+  const buffer = await blob.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const slice = bytes.subarray(offset, offset + chunkSize);
+    binary += String.fromCharCode.apply(null, slice);
+  }
+  return btoa(binary);
+}
+
+async function buildPublishFilesForSession(session) {
+  if (!session?.fileMap || session.fileMap.size === 0) {
+    return [];
+  }
+  if (Array.isArray(session.publishFiles) && session.publishFiles.length === session.fileMap.size) {
+    return session.publishFiles;
+  }
+  if (!session.publishFilesPromise) {
+    session.publishFilesPromise = (async () => {
+      if (typeof window.logStep === 'function') {
+        window.logStep('Preparing files…');
+      }
+      if (typeof window.setProgress === 'function') {
+        window.setProgress(30, 'Preparing…');
+      }
+      const entries = Array.from(session.fileMap.entries());
+      const files = [];
+      for (let index = 0; index < entries.length; index += 1) {
+        const [path, record] = entries[index];
+        // eslint-disable-next-line no-await-in-loop
+        const base64Content = await blobToBase64(record.blob);
+        files.push({ path, base64Content });
+        if (typeof window.setProgress === 'function' && entries.length > 0) {
+          const progress = 30 + Math.floor(((index + 1) / entries.length) * 5);
+          window.setProgress(progress, 'Preparing…');
+        }
+        if ((index + 1) % ENCODE_CHUNK_SIZE === 0) {
+          // Yield to keep the UI responsive for large archives.
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+      session.publishFiles = files;
+      return files;
+    })();
+  }
+  try {
+    const files = await session.publishFilesPromise;
+    session.publishFilesPromise = null;
+    return files;
+  } catch (error) {
+    session.publishFilesPromise = null;
+    throw error;
+  }
+}
+
 function createSessionId() {
   if (crypto?.randomUUID) {
     return crypto.randomUUID();
@@ -115,7 +280,16 @@ function createSessionId() {
 
 export async function buildFileMap(zip, onProgress = () => {}) {
   const entries = Object.values(zip.files).filter((file) => !file.dir);
-  return buildFileRecords(entries, onProgress);
+  let lastReport = Date.now();
+  const wrappedOnProgress = (current, total, path) => {
+    onProgress(current, total, path);
+    const now = Date.now();
+    if (now - lastReport > 5000) {
+      console.info(`[preview] Prepared ${current}/${total}: ${path}`); // eslint-disable-line no-console
+      lastReport = now;
+    }
+  };
+  return buildFileRecords(entries, wrappedOnProgress);
 }
 
 async function registerServiceWorker() {
@@ -137,14 +311,67 @@ async function ensureServiceWorkerController() {
     throw new Error('Service workers are not supported in this browser.');
   }
   if (navigator.serviceWorker.controller) {
+    sessionStorage.removeItem('viewer-sw-reload');
     return navigator.serviceWorker.controller;
   }
-  await new Promise((resolve) => {
-    navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
-  });
+  const reloadFlagKey = 'viewer-sw-reload';
+  const awaitController = () =>
+    new Promise((resolve, reject) => {
+      let settled = false;
+      let timer;
+      const cleanup = () => {
+        settled = true;
+        navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+        clearTimeout(timer);
+      };
+      const onChange = () => {
+        cleanup();
+        resolve(navigator.serviceWorker.controller);
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onChange);
+
+      navigator.serviceWorker.ready
+        .then(() => {
+          if (!settled && navigator.serviceWorker.controller) {
+            cleanup();
+            resolve(navigator.serviceWorker.controller);
+          }
+        })
+        .catch((error) => {
+          console.warn('navigator.serviceWorker.ready rejected', error); // eslint-disable-line no-console
+        });
+
+      timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Service worker did not take control in time.'));
+      }, SW_CONTROLLER_TIMEOUT);
+    });
+
+  try {
+    const controller = await awaitController();
+    if (controller) {
+      sessionStorage.removeItem(reloadFlagKey);
+      return controller;
+    }
+  } catch (error) {
+    console.warn(error.message); // eslint-disable-line no-console
+  }
+
+  if (!navigator.serviceWorker.controller) {
+    const reloadAttempted = sessionStorage.getItem(reloadFlagKey) === '1';
+    if (!reloadAttempted) {
+      sessionStorage.setItem(reloadFlagKey, '1');
+      console.info('Reloading the page so the preview service worker can take control.'); // eslint-disable-line no-console
+      window.location.reload();
+      throw new Error('Reloading to allow service worker control.');
+    }
+    sessionStorage.removeItem(reloadFlagKey);
+  }
+
   if (!navigator.serviceWorker.controller) {
     throw new Error('Unable to obtain service worker controller.');
   }
+  sessionStorage.removeItem(reloadFlagKey);
   return navigator.serviceWorker.controller;
 }
 
@@ -232,9 +459,6 @@ function resetInterface() {
     publishButton.disabled = true;
     publishButton.setAttribute('aria-disabled', 'true');
   }
-  if (githubPublisher) {
-    githubPublisher.clearArchive();
-  }
 }
 
 async function handleElpxFile(file) {
@@ -269,8 +493,11 @@ async function handleElpxFile(file) {
 
   const { versionLabel } = computeCompatibility(metadata);
 
-  const { fileMap, fileList, totalSize } = await buildFileMap(zip, (current, total) => {
+  const { fileMap, fileList, totalSize } = await buildFileMap(zip, (current, total, path) => {
     updateStatus(`Preparing preview… ${current}/${total}`);
+    if ((current % 50 === 0 || current === total) && path) {
+      console.info(`[preview] Extracted ${current}/${total}: ${path}`); // eslint-disable-line no-console
+    }
   });
   warnLargeArchive(totalSize);
 
@@ -281,21 +508,25 @@ async function handleElpxFile(file) {
   const sessionId = createSessionId();
 
   await ensureServiceWorkerController();
-  postToServiceWorker({
-    type: 'register-session',
+  const sessionFiles = Array.from(fileMap.entries()).map(([path, record]) => ({
     sessionId,
-    files: Array.from(fileMap.entries()).map(([path, record]) => ({
-      sessionId,
-      path,
-      mimeType: record.mimeType,
-      lastModified: record.lastModified,
-      blob: record.blob
-    }))
-  });
+    path,
+    mimeType: record.mimeType,
+    lastModified: record.lastModified,
+    blob: record.blob
+  }));
+  let ackReceived = false;
+  try {
+    await registerPreviewSession(sessionId, sessionFiles);
+    ackReceived = true;
+  } catch (error) {
+    console.warn('Preview session wait timed out, proceeding anyway.', error); // eslint-disable-line no-console
+  }
 
   const previewUrl = new URL(`preview/${sessionId}/index.html`, getAppBaseUrl());
   setPreviewState({ showFrame: true, src: previewUrl.toString() });
   updateStatus('Preview ready.');
+  console.info(`[preview] Session ${sessionId} ready${ackReceived ? '' : ' (no ack)'}.`); // eslint-disable-line no-console
 
   const messages = gatherMessages(manifestKind, xmlDoc, zip);
 
@@ -311,7 +542,9 @@ async function handleElpxFile(file) {
     fileList,
     summary: { totalFiles: fileList.length, totalSize },
     messages,
-    versionLabel
+    versionLabel,
+    publishFiles: null,
+    publishFilesPromise: null
   };
 
   infoPanel.update({
@@ -333,10 +566,6 @@ async function handleElpxFile(file) {
   if (publishButton) {
     publishButton.disabled = false;
     publishButton.removeAttribute('aria-disabled');
-  }
-
-  if (githubPublisher) {
-    githubPublisher.setArchive(currentSession);
   }
 }
 
@@ -432,9 +661,6 @@ async function handleFile(file) {
   }
 
   try {
-    if (githubPublisher && githubPublisher.isPublishing()) {
-      githubPublisher.cancelPublish('File selection changed.');
-    }
     if (previewFrame) {
       setPreviewState({ showFrame: false });
     }
@@ -442,9 +668,6 @@ async function handleFile(file) {
     if (publishButton) {
       publishButton.disabled = true;
       publishButton.setAttribute('aria-disabled', 'true');
-    }
-    if (githubPublisher) {
-      githubPublisher.clearArchive();
     }
     if (fileType === 'elpx') {
       await handleElpxFile(file);
@@ -470,8 +693,6 @@ function setupDragAndDrop() {
   }
 
   dropzone.setAttribute('aria-hidden', 'true');
-
-  let dragDepth = 0;
 
   const isFileDrag = (event) => {
     const types = event.dataTransfer?.types;
@@ -522,18 +743,7 @@ function setupDragAndDrop() {
       return;
     }
     preventDefault(event);
-    dragDepth += 1;
     showOverlay();
-  });
-
-  document.addEventListener('dragleave', () => {
-    if (dragDepth === 0) {
-      return;
-    }
-    dragDepth = Math.max(dragDepth - 1, 0);
-    if (dragDepth === 0) {
-      hideOverlay();
-    }
   });
 
   document.addEventListener('dragover', (event) => {
@@ -547,26 +757,28 @@ function setupDragAndDrop() {
   });
 
   document.addEventListener('drop', (event) => {
-    const droppedFile = extractFirstFile(event.dataTransfer);
-    if (droppedFile) {
-      preventDefault(event);
-      event.stopPropagation();
-      hideOverlay();
-      dragDepth = 0;
-      void handleFile(droppedFile);
+    if (!isFileDrag(event)) {
       return;
     }
-    if (isFileDrag(event)) {
-      preventDefault(event);
-      event.stopPropagation();
-    }
-    dragDepth = 0;
+    preventDefault(event);
+    const droppedFile = extractFirstFile(event.dataTransfer);
     hideOverlay();
+    if (droppedFile) {
+      void handleFile(droppedFile);
+    }
   });
 
   document.addEventListener('dragend', () => {
-    dragDepth = 0;
     hideOverlay();
+  });
+
+  document.addEventListener('dragleave', (event) => {
+    // Only hide overlay when leaving the window entirely
+    if (event.target === document.documentElement || event.target === document.body) {
+      if (!event.relatedTarget || event.relatedTarget.nodeName === 'HTML') {
+        hideOverlay();
+      }
+    }
   });
 
   dropzone.addEventListener('dragenter', (event) => {
@@ -598,11 +810,9 @@ function setupDragAndDrop() {
       return;
     }
     preventDefault(event);
-    event.stopPropagation();
     dropzone.classList.remove('is-dragover');
     const file = extractFirstFile(event.dataTransfer);
     hideOverlay();
-    dragDepth = 0;
     if (file) {
       void handleFile(file);
     }
@@ -616,7 +826,6 @@ function setupDragAndDrop() {
     const files = event.target.files;
     if (files && files.length > 0) {
       hideOverlay();
-      dragDepth = 0;
       void handleFile(files[0]);
       fileInput.value = '';
     }
@@ -624,6 +833,7 @@ function setupDragAndDrop() {
 }
 
 async function initialise() {
+  installErrorGuards();
   updateHeaderOffset();
   window.addEventListener('resize', updateHeaderOffset);
   window.addEventListener('load', updateHeaderOffset);
@@ -640,7 +850,14 @@ async function initialise() {
     });
   }
 
-  await registerServiceWorker();
+  const registration = await registerServiceWorker();
+  if (!registration) {
+    showToast(
+      'Preview service worker could not start. Reload the page to enable previews.',
+      'danger'
+    );
+    return;
+  }
   try {
     await ensureServiceWorkerController();
   } catch (error) {
@@ -649,19 +866,36 @@ async function initialise() {
       'Preview service worker could not start. Reload the page to enable previews.',
       'danger'
     );
+    return;
+  }
+  if (!navigator.serviceWorker.controller) {
+    showToast(
+      'Preview will be available after a reload so the service worker can activate.',
+      'warning'
+    );
+    return;
   }
 
   postToServiceWorker({ type: 'cleanup-sessions' });
+}
 
-  const modalElement = document.getElementById('publishModal');
-  if (publishButton && modalElement) {
-    githubPublisher = new GitHubPublisher({
-      button: publishButton,
-      modalElement,
-      toast: showToast,
-      formatBytes
-    });
-  }
+if (typeof window.getGitHubToken !== 'function') {
+  window.getGitHubToken = () => getStoredGitHubToken();
+}
+
+if (typeof window.getFilesToPublish !== 'function') {
+  window.getFilesToPublish = async () => {
+    if (!currentSession) {
+      return [];
+    }
+    return buildPublishFilesForSession(currentSession);
+  };
+}
+
+if (typeof window.onSignOut !== 'function') {
+  window.onSignOut = () => {
+    clearStoredGitHubAuth(true);
+  };
 }
 
 if (document.readyState === 'loading') {

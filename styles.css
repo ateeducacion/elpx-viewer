@@ -165,6 +165,22 @@ body {
   margin: 0;
 }
 
+.select2-container .select2-selection--single {
+  height: 38px;
+  padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: 1.5;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 38px;
+  right: 0.75rem;
+}
+
 #sdHeader {
   background: #2b2a33 url('exelearning.png') no-repeat 20px 50%;
   background-size: auto 32px;

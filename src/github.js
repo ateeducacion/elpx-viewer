@@ -32,7 +32,7 @@ export class GitHubPublisher {
     this.user = null;
     this.octokit = null;
     this.repos = [];
-    this.filteredRepos = [];
+    this.ownerList = [];
     this.branches = [];
     this.branchExists = false;
     this.publishResult = null;
@@ -50,6 +50,7 @@ export class GitHubPublisher {
     }
     return {
       authStatus: this.modalElement.querySelector('#authStatus'),
+      authStatusMessage: this.modalElement.querySelector('#authStatusMessage'),
       deviceCodeSection: this.modalElement.querySelector('#deviceCodeSection'),
       deviceUserCode: this.modalElement.querySelector('#deviceUserCode'),
       deviceVerificationUri: this.modalElement.querySelector('#deviceVerificationUri'),
@@ -58,11 +59,9 @@ export class GitHubPublisher {
       startAuthButton: this.modalElement.querySelector('#startAuthButton'),
       signOutButton: this.modalElement.querySelector('#signOutButton'),
       publishForm: this.modalElement.querySelector('#githubPublishForm'),
-      repoFilter: this.modalElement.querySelector('#repoFilter'),
-      reloadReposButton: this.modalElement.querySelector('#reloadReposButton'),
+      ownerSelect: this.modalElement.querySelector('#ownerSelect'),
       repoSelect: this.modalElement.querySelector('#repoSelect'),
-      branchInput: this.modalElement.querySelector('#branchInput'),
-      branchOptions: this.modalElement.querySelector('#branchOptions'),
+      branchSelect: this.modalElement.querySelector('#branchSelect'),
       branchAlert: this.modalElement.querySelector('#branchExistsAlert'),
       overwriteWrapper: this.modalElement.querySelector('#overwriteCheckWrapper'),
       overwriteCheckbox: this.modalElement.querySelector('#overwriteCheckbox'),
@@ -71,8 +70,6 @@ export class GitHubPublisher {
       progressText: this.modalElement.querySelector('#publishProgressText'),
       progressLog: this.modalElement.querySelector('#publishLog'),
       resultSection: this.modalElement.querySelector('#githubResultSection'),
-      viewRepoLink: this.modalElement.querySelector('#viewRepoLink'),
-      viewSiteLink: this.modalElement.querySelector('#viewSiteLink'),
       resultMessage: this.modalElement.querySelector('#publishResultMessage'),
       primaryButton: this.modalElement.querySelector('#modalPrimaryButton')
     };
@@ -100,14 +97,14 @@ export class GitHubPublisher {
     if (this.elements.reloadReposButton) {
       this.elements.reloadReposButton.addEventListener('click', () => this.reloadRepositories());
     }
-    if (this.elements.repoFilter) {
-      this.elements.repoFilter.addEventListener('input', () => this.updateRepoList());
+    if (this.elements.ownerSelect) {
+      this.elements.ownerSelect.addEventListener('change', () => this.handleOwnerChange());
     }
     if (this.elements.repoSelect) {
       this.elements.repoSelect.addEventListener('change', () => this.handleRepoSelection());
     }
-    if (this.elements.branchInput) {
-      this.elements.branchInput.addEventListener('input', () => this.handleBranchInput());
+    if (this.elements.branchSelect) {
+      this.elements.branchSelect.addEventListener('change', () => this.handleBranchSelection());
     }
     if (this.elements.overwriteCheckbox) {
       this.elements.overwriteCheckbox.addEventListener('change', () => this.updatePrimaryButton());
@@ -245,11 +242,47 @@ export class GitHubPublisher {
     }
     this.resetProgress();
     this.clearResult();
-    if (this.elements.branchInput) {
-      this.elements.branchInput.value = this.defaultPagesBranch;
+    if (this.elements.ownerSelect) {
+      const ownerTarget = this.user?.login || '';
+      if (
+        window.jQuery &&
+        window.jQuery.fn.select2 &&
+        window.jQuery(this.elements.ownerSelect).hasClass('select2-hidden-accessible')
+      ) {
+        window
+          .jQuery(this.elements.ownerSelect)
+          .val(ownerTarget || null)
+          .trigger('change');
+      } else if (ownerTarget) {
+        this.elements.ownerSelect.value = ownerTarget;
+        this.handleOwnerChange();
+      }
+    }
+    if (this.elements.branchSelect) {
+      if (
+        window.jQuery &&
+        window.jQuery.fn.select2 &&
+        window.jQuery(this.elements.branchSelect).hasClass('select2-hidden-accessible')
+      ) {
+        window.jQuery(this.elements.branchSelect).val(this.defaultPagesBranch).trigger('change');
+      } else {
+        this.elements.branchSelect.value = this.defaultPagesBranch;
+        this.handleBranchSelection();
+      }
+    }
+    if (
+      this.elements.repoSelect &&
+      window.jQuery &&
+      window.jQuery.fn.select2 &&
+      window.jQuery(this.elements.repoSelect).hasClass('select2-hidden-accessible')
+    ) {
+      window.jQuery(this.elements.repoSelect).val(null).trigger('change');
+    } else if (this.elements.repoSelect) {
+      this.elements.repoSelect.value = '';
     }
     if (this.elements.overwriteCheckbox) {
       this.elements.overwriteCheckbox.checked = false;
+      this.elements.overwriteCheckbox.required = false;
     }
   }
 
@@ -257,8 +290,12 @@ export class GitHubPublisher {
     if (!this.elements.authStatus) {
       return;
     }
+    const messageEl = this.elements.authStatusMessage;
     if (!this.token || !this.user) {
-      this.elements.authStatus.innerHTML = '<span class="text-muted">Not signed in.</span>';
+      if (messageEl) {
+        messageEl.innerHTML = '<span class="text-muted">Not signed in.</span>';
+      }
+      this.elements.signOutButton?.classList.add('d-none');
       this.toggleAuthControls(true);
       this.hidePublishForm();
       return;
@@ -266,26 +303,29 @@ export class GitHubPublisher {
     const avatar = this.user.avatar_url
       ? `<img src="${this.user.avatar_url}" alt="" class="rounded-circle me-2" width="28" height="28">`
       : '';
-    this.elements.authStatus.innerHTML = `<div class="d-flex align-items-center">${avatar}<span>Signed in as <strong>${this.user.login}</strong></span></div>`;
+    if (messageEl) {
+      messageEl.innerHTML = `<span class="d-flex align-items-center">${avatar}Signed in as <strong>${this.user.login}</strong></span>`;
+    }
+    this.elements.signOutButton?.classList.remove('d-none');
     this.toggleAuthControls(false);
     this.showPublishForm();
   }
 
   toggleAuthControls(showSignIn) {
-    if (!this.elements.authControls) return;
     if (showSignIn) {
       this.elements.startAuthButton?.classList.remove('d-none');
-      this.elements.signOutButton?.classList.add('d-none');
     } else {
       this.elements.startAuthButton?.classList.add('d-none');
-      this.elements.signOutButton?.classList.remove('d-none');
     }
   }
 
   renderError(message) {
-    if (this.elements.authStatus) {
-      this.elements.authStatus.innerHTML = `<div class="alert alert-danger" role="alert">${message}</div>`;
+    if (this.elements.authStatusMessage) {
+      this.elements.authStatusMessage.innerHTML = `<span class="text-danger">${message}</span>`;
     }
+    this.elements.signOutButton?.classList.add('d-none');
+    this.toggleAuthControls(true);
+    this.hidePublishForm();
   }
 
   showDeviceCodePanel(payload) {
@@ -396,6 +436,7 @@ export class GitHubPublisher {
     if (this.elements.publishForm) {
       this.elements.publishForm.classList.remove('d-none');
     }
+    this.initSelectWidgets();
     this.updatePrimaryButton();
   }
 
@@ -406,7 +447,46 @@ export class GitHubPublisher {
     this.updatePrimaryButton();
   }
 
-  async loadRepositories() {
+  initSelectWidgets() {
+    if (!window.jQuery || !window.jQuery.fn.select2 || !this.modalElement) {
+      return;
+    }
+    const parent = window.jQuery(this.modalElement);
+    if (
+      this.elements.ownerSelect &&
+      !window.jQuery(this.elements.ownerSelect).hasClass('select2-hidden-accessible')
+    ) {
+      window.jQuery(this.elements.ownerSelect).select2({
+        width: '100%',
+        dropdownParent: parent,
+        placeholder: 'Select owner'
+      });
+    }
+    if (
+      this.elements.repoSelect &&
+      !window.jQuery(this.elements.repoSelect).hasClass('select2-hidden-accessible')
+    ) {
+      window.jQuery(this.elements.repoSelect).select2({
+        width: '100%',
+        dropdownParent: parent,
+        tags: true,
+        placeholder: 'Select or type repository'
+      });
+    }
+    if (
+      this.elements.branchSelect &&
+      !window.jQuery(this.elements.branchSelect).hasClass('select2-hidden-accessible')
+    ) {
+      window.jQuery(this.elements.branchSelect).select2({
+        width: '100%',
+        dropdownParent: parent,
+        tags: true,
+        placeholder: this.defaultPagesBranch
+      });
+    }
+  }
+
+  async loadRepositories({ owner: preferredOwner, repo: preferredRepo } = {}) {
     if (!this.octokit) {
       return;
     }
@@ -416,95 +496,225 @@ export class GitHubPublisher {
         sort: 'updated'
       });
       this.repos = repos;
-      this.updateRepoList();
-      if (this.elements.branchInput && !this.elements.branchInput.value) {
-        this.elements.branchInput.value = this.defaultPagesBranch;
-      }
+      this.ownerList = Array.from(
+        new Set(repos.map((repository) => repository.owner.login).concat(this.user?.login || []))
+      ).sort((a, b) => {
+        if (a === this.user?.login) return -1;
+        if (b === this.user?.login) return 1;
+        return a.localeCompare(b);
+      });
+      const ownerPreference =
+        preferredOwner || this.getSelectedOwner() || this.user?.login || this.ownerList[0] || '';
+      const repoPreference = preferredRepo || this.getRepoValue();
+      this.populateOwnerSelect(ownerPreference);
+      this.populateRepoOptions(ownerPreference, repoPreference);
+      await this.handleRepoSelection();
+      this.initSelectWidgets();
     } catch (error) {
       console.error(error);
       this.toast('Failed to load repositories.', 'danger');
     }
   }
 
-  async reloadRepositories() {
-    this.repos = [];
-    await this.loadRepositories();
+  async reloadRepositories(prefs = {}) {
+    await this.loadRepositories(prefs);
   }
 
-  updateRepoList() {
-    if (!this.elements.repoSelect) return;
-    const query = this.elements.repoFilter?.value?.toLowerCase() || '';
-    const repos = query
-      ? this.repos.filter((repo) => repo.full_name.toLowerCase().includes(query))
-      : this.repos;
-    this.filteredRepos = repos;
-    this.elements.repoSelect.innerHTML = '';
-    repos.forEach((repo) => {
-      const option = document.createElement('option');
-      option.value = repo.full_name;
-      option.textContent = repo.full_name;
-      option.dataset.defaultBranch = repo.default_branch;
-      this.elements.repoSelect.appendChild(option);
+  populateOwnerSelect(preferredOwner) {
+    if (!this.elements.ownerSelect) return;
+    const owners = Array.from(new Set(this.ownerList.filter(Boolean)));
+    this.elements.ownerSelect.innerHTML = '';
+    owners.forEach((owner) => {
+      const option = new Option(owner, owner, false, owner === preferredOwner);
+      this.elements.ownerSelect.append(option);
     });
-    if (repos.length > 0) {
-      this.elements.repoSelect.selectedIndex = 0;
-      this.handleRepoSelection();
+    const target = preferredOwner || owners[0] || '';
+    if (
+      window.jQuery &&
+      window.jQuery.fn.select2 &&
+      window.jQuery(this.elements.ownerSelect).hasClass('select2-hidden-accessible')
+    ) {
+      window
+        .jQuery(this.elements.ownerSelect)
+        .val(target || null)
+        .trigger('change');
+    } else if (target) {
+      this.elements.ownerSelect.value = target;
+      this.handleOwnerChange();
+    }
+    if (!target) {
+      this.handleOwnerChange();
+    }
+  }
+
+  handleOwnerChange() {
+    const owner = this.getSelectedOwner();
+    this.populateRepoOptions(owner, '');
+    void this.handleRepoSelection();
+    this.updatePrimaryButton();
+  }
+
+  populateRepoOptions(ownerLogin, preferredRepo) {
+    if (!this.elements.repoSelect) return;
+    const repos = ownerLogin
+      ? this.repos.filter((repo) => repo.owner.login === ownerLogin)
+      : this.repos;
+    const select = this.elements.repoSelect;
+    const currentValue = preferredRepo || this.getRepoValue();
+    select.innerHTML = '';
+    repos.forEach((repo) => {
+      const option = new Option(repo.name, repo.name, false, false);
+      select.append(option);
+    });
+    if (
+      currentValue &&
+      !repos.some((repo) => repo.name.toLowerCase() === currentValue.toLowerCase())
+    ) {
+      const option = new Option(currentValue, currentValue, true, true);
+      select.append(option);
+    }
+    if (
+      window.jQuery &&
+      window.jQuery.fn.select2 &&
+      window.jQuery(select).hasClass('select2-hidden-accessible')
+    ) {
+      window
+        .jQuery(select)
+        .val(currentValue || null)
+        .trigger('change');
+    } else if (currentValue) {
+      select.value = currentValue;
+    } else {
+      select.value = '';
+    }
+  }
+
+  getSelectedOwner() {
+    return this.elements.ownerSelect?.value?.trim() || '';
+  }
+
+  getRepoValue() {
+    return this.elements.repoSelect?.value?.trim() || '';
+  }
+
+  getRepositorySelection() {
+    const owner = this.getSelectedOwner();
+    const repoName = this.getRepoValue();
+    if (!owner || !repoName) {
+      return { owner, repoName, repo: null };
+    }
+    const repo = this.repos.find(
+      (entry) => entry.owner.login === owner && entry.name.toLowerCase() === repoName.toLowerCase()
+    );
+    return { owner, repoName, repo: repo || null };
+  }
+
+  async handleRepoSelection() {
+    const selection = this.getRepositorySelection();
+    const repo = selection.repo;
+    if (!repo || !this.octokit) {
+      this.branches = [];
+      this.populateBranchOptions([], this.defaultPagesBranch);
+      this.handleBranchSelection();
+      this.updatePrimaryButton();
+      return;
+    }
+    try {
+      const [ownerLogin, name] = repo.full_name.split('/');
+      this.branches = await this.octokit.paginate(this.octokit.rest.repos.listBranches, {
+        owner: ownerLogin,
+        repo: name,
+        per_page: 100
+      });
+      this.populateBranchOptions(this.branches);
+      this.handleBranchSelection();
+    } catch (error) {
+      console.error(error);
+      this.toast('Unable to load branches for the selected repository.', 'danger');
+      this.branches = [];
+      this.populateBranchOptions([], this.defaultPagesBranch);
+      this.handleBranchSelection();
     }
     this.updatePrimaryButton();
   }
 
-  getSelectedRepo() {
-    if (!this.elements.repoSelect) return null;
-    const value = this.elements.repoSelect.value;
-    if (!value) return null;
-    return this.repos.find((repo) => repo.full_name === value) || null;
+  populateBranchOptions(branches = [], preferredBranch) {
+    if (!this.elements.branchSelect) return;
+    const select = this.elements.branchSelect;
+    const current = preferredBranch || this.getBranchName();
+    select.innerHTML = '';
+    const seen = new Set();
+    branches.forEach((branch) => {
+      seen.add(branch.name);
+      const option = new Option(branch.name, branch.name, false, false);
+      select.append(option);
+    });
+    const fallback = current || this.defaultPagesBranch;
+    if (fallback && !seen.has(fallback)) {
+      const option = new Option(fallback, fallback, true, true);
+      select.append(option);
+    }
+    if (
+      window.jQuery &&
+      window.jQuery.fn.select2 &&
+      window.jQuery(select).hasClass('select2-hidden-accessible')
+    ) {
+      window
+        .jQuery(select)
+        .val(fallback || null)
+        .trigger('change');
+    } else if (fallback) {
+      select.value = fallback;
+    }
   }
 
-  async handleRepoSelection() {
-    const repo = this.getSelectedRepo();
-    if (!repo || !this.octokit) {
+  getBranchName() {
+    if (!this.elements.branchSelect) return '';
+    if (
+      window.jQuery &&
+      window.jQuery.fn.select2 &&
+      window.jQuery(this.elements.branchSelect).hasClass('select2-hidden-accessible')
+    ) {
+      const value = window.jQuery(this.elements.branchSelect).val();
+      if (Array.isArray(value)) {
+        return value[0] || '';
+      }
+      return value || '';
+    }
+    return this.elements.branchSelect.value?.trim() || '';
+  }
+
+  handleBranchSelection() {
+    const branchName = this.getBranchName();
+    this.branchExists = branchName
+      ? this.branches.some((branch) => branch.name === branchName)
+      : false;
+    if (!branchName) {
+      this.elements.branchAlert?.classList.add('d-none');
+      this.elements.overwriteWrapper?.classList.add('d-none');
+      this.elements.branchCreateNotice?.classList.add('d-none');
+      if (this.elements.overwriteCheckbox) {
+        this.elements.overwriteCheckbox.required = false;
+        this.elements.overwriteCheckbox.checked = false;
+      }
+      this.updatePrimaryButton();
       return;
     }
-    try {
-      const [owner, name] = repo.full_name.split('/');
-      this.branches = await this.octokit.paginate(this.octokit.rest.repos.listBranches, {
-        owner,
-        repo: name,
-        per_page: 100
-      });
-      this.populateBranchOptions();
-      if (this.elements.branchInput && !this.elements.branchInput.value) {
-        this.elements.branchInput.value = this.defaultPagesBranch;
-      }
-      this.handleBranchInput();
-    } catch (error) {
-      console.error(error);
-      this.toast('Unable to load branches for the selected repository.', 'danger');
-    }
-  }
-
-  populateBranchOptions() {
-    if (!this.elements.branchOptions) return;
-    this.elements.branchOptions.innerHTML = '';
-    this.branches.forEach((branch) => {
-      const option = document.createElement('option');
-      option.value = branch.name;
-      this.elements.branchOptions.appendChild(option);
-    });
-  }
-
-  handleBranchInput() {
-    const branchName = this.elements.branchInput?.value?.trim();
-    this.branchExists = this.branches.some((branch) => branch.name === branchName);
     if (this.branchExists) {
       this.elements.branchAlert?.classList.remove('d-none');
       this.elements.overwriteWrapper?.classList.remove('d-none');
+      if (this.elements.overwriteCheckbox) {
+        this.elements.overwriteCheckbox.required = true;
+      }
+      this.elements.branchCreateNotice?.classList.add('d-none');
     } else {
       this.elements.branchAlert?.classList.add('d-none');
       this.elements.overwriteWrapper?.classList.add('d-none');
       if (this.elements.overwriteCheckbox) {
+        this.elements.overwriteCheckbox.required = false;
         this.elements.overwriteCheckbox.checked = false;
       }
+      this.elements.branchCreateNotice?.classList.remove('d-none');
     }
     this.updatePrimaryButton();
   }
@@ -517,7 +727,9 @@ export class GitHubPublisher {
         this.elements.primaryButton.textContent = 'Cancel';
         break;
       case 'view':
-        this.elements.primaryButton.textContent = 'View site';
+        this.elements.primaryButton.textContent = this.publishResult?.pagesUrl
+          ? 'Open site'
+          : 'Open repository';
         break;
       default:
         this.elements.primaryButton.textContent = 'Publish';
@@ -537,14 +749,15 @@ export class GitHubPublisher {
       return;
     }
     if (this.currentAction === 'view') {
-      this.elements.primaryButton.disabled = !this.publishResult?.pagesUrl;
+      const hasTarget = Boolean(this.publishResult?.pagesUrl || this.publishResult?.repoUrl);
+      this.elements.primaryButton.disabled = !hasTarget;
       return;
     }
-    const branchName = this.elements.branchInput?.value?.trim();
-    const repoSelected = this.getSelectedRepo();
+    const { owner, repoName } = this.getRepositorySelection();
+    const branchName = this.getBranchName();
     const branchValid = isValidBranchName(branchName);
     const overwriteOk = !this.branchExists || this.elements.overwriteCheckbox?.checked;
-    this.elements.primaryButton.disabled = !(repoSelected && branchValid && overwriteOk);
+    this.elements.primaryButton.disabled = !(owner && repoName && branchValid && overwriteOk);
   }
 
   handlePrimaryAction() {
@@ -552,8 +765,11 @@ export class GitHubPublisher {
       this.cancelPublish();
       return;
     }
-    if (this.currentAction === 'view' && this.publishResult?.pagesUrl) {
-      window.open(this.publishResult.pagesUrl, '_blank', 'noopener');
+    if (this.currentAction === 'view') {
+      const target = this.publishResult?.pagesUrl || this.publishResult?.repoUrl;
+      if (target) {
+        window.open(target, '_blank', 'noopener');
+      }
       return;
     }
     void this.publish();
@@ -612,13 +828,6 @@ export class GitHubPublisher {
   showResult({ pagesUrl, repoUrl }) {
     if (!this.elements.resultSection) return;
     this.elements.resultSection.classList.remove('d-none');
-    if (this.elements.viewSiteLink) {
-      this.elements.viewSiteLink.href = pagesUrl || '#';
-      this.elements.viewSiteLink.classList.toggle('disabled', !pagesUrl);
-    }
-    if (this.elements.viewRepoLink) {
-      this.elements.viewRepoLink.href = repoUrl || '#';
-    }
     this.publishResult = { pagesUrl, repoUrl };
     this.setPrimaryAction('view');
     this.updatePrimaryButton();
@@ -629,12 +838,66 @@ export class GitHubPublisher {
       this.toast('Sign in to GitHub and load an .elpx archive first.', 'warning');
       return;
     }
-    const repo = this.getSelectedRepo();
-    const branchName = this.elements.branchInput?.value?.trim();
-    if (!repo || !branchName) {
-      this.toast('Select a repository and branch to publish.', 'warning');
+    const { owner, repoName, repo: existingRepo } = this.getRepositorySelection();
+    if (!owner) {
+      this.toast('Select an owner to publish under.', 'warning');
       return;
     }
+    if (!repoName) {
+      this.toast('Select or type a repository name.', 'warning');
+      return;
+    }
+    let repo = existingRepo;
+    if (!repo) {
+      try {
+        this.toast(`Creating repository ${owner}/${repoName}…`, 'info');
+        await this.createRepository(owner, repoName);
+        await this.reloadRepositories({ owner, repo: repoName });
+        repo = this.getRepositorySelection().repo;
+        if (!repo) {
+          this.toast(
+            'Repository created but selection could not be refreshed. Reopen the dialog and try again.',
+            'warning'
+          );
+          return;
+        }
+      } catch (error) {
+        console.error(error);
+        if (error?.code === 'repo-exists') {
+          await this.reloadRepositories({ owner, repo: repoName });
+          repo = this.getRepositorySelection().repo;
+          if (!repo) {
+            this.toast('Repository already exists but could not be accessed.', 'danger');
+            return;
+          }
+        } else {
+          this.toast(
+            error.message || 'Unable to create repository. Check your permissions.',
+            'danger'
+          );
+          return;
+        }
+      }
+    }
+
+    let branchName = this.getBranchName();
+    if (!branchName) {
+      branchName = this.defaultPagesBranch;
+      if (this.elements.branchSelect) {
+        if (
+          window.jQuery &&
+          window.jQuery.fn.select2 &&
+          window.jQuery(this.elements.branchSelect).hasClass('select2-hidden-accessible')
+        ) {
+          window.jQuery(this.elements.branchSelect).val(branchName).trigger('change');
+        } else {
+          this.elements.branchSelect.value = branchName;
+        }
+      }
+      this.handleBranchSelection();
+    }
+    branchName = this.getBranchName();
+    branchName = this.getBranchName();
     if (!isValidBranchName(branchName)) {
       this.toast('Branch name is not valid.', 'warning');
       return;
@@ -678,6 +941,36 @@ export class GitHubPublisher {
     } finally {
       this.isPublishingFlag = false;
       this.publishAbort = null;
+    }
+  }
+
+  async createRepository(ownerLogin, repoName) {
+    if (!this.octokit) {
+      throw new Error('Not authenticated with GitHub.');
+    }
+    try {
+      let response;
+      if (ownerLogin === this.user?.login) {
+        response = await this.octokit.rest.repos.createForAuthenticatedUser({
+          name: repoName,
+          auto_init: true
+        });
+      } else {
+        response = await this.octokit.rest.repos.createInOrg({
+          org: ownerLogin,
+          name: repoName,
+          auto_init: true
+        });
+      }
+      this.toast(`Repository ${ownerLogin}/${repoName} ready.`, 'success');
+      return response.data;
+    } catch (error) {
+      if (error?.status === 422) {
+        const existsError = new Error(`Repository ${ownerLogin}/${repoName} already exists.`);
+        existsError.code = 'repo-exists';
+        throw existsError;
+      }
+      throw error;
     }
   }
 
@@ -737,7 +1030,7 @@ export class GitHubPublisher {
       this.logProgress('Unable to read existing branch reference. Creating a root commit.');
     }
 
-    const message = `Publish ELPX site (${new Date().toISOString()})`;
+    const message = `Push new version ${new Date().toISOString()}`;
     const { data: commitData } = await this.octokit.rest.git.createCommit({
       owner: ownerLogin,
       repo: repoName,
@@ -775,7 +1068,7 @@ export class GitHubPublisher {
     const { owner } = repo;
     const ownerLogin = owner.login || owner;
     const repoName = repo.name;
-    const messagePrefix = `Publish ELPX site (${new Date().toISOString()})`;
+    const messagePrefix = `Push new version ${new Date().toISOString()}`;
 
     let branchRef;
     try {
