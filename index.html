@@ -264,125 +264,138 @@
             </div>
 
             <div id="publishFormWrapper" class="d-none" aria-hidden="true">
-            <section class="mb-4">
-              <div class="mb-2">
-                <label for="publishRepo" class="form-label">Repository</label>
-                <select class="form-select" id="publishRepo" data-placeholder="Search repositories">
-                  <option value="" selected disabled>Search repositories</option>
-                </select>
-                <div class="form-text">
-                  A repository is your project folder on GitHub. Search for an existing project or
-                  type a new name to create it.
-                </div>
-              </div>
-              <div id="publishRepoValidation" class="invalid-feedback d-block" hidden></div>
-              <div id="publishNewRepoCard" class="card border-primary-subtle shadow-sm mt-3" hidden>
-                <div class="card-body py-3">
-                  <h2 class="card-title h6 mb-3">Create new repository</h2>
-                  <div class="mb-3">
-                    <span class="form-label d-block">Owner</span>
-                    <div id="publishOwnerOptions" class="d-flex flex-wrap gap-2"></div>
-                    <div id="publishOwnerValidation" class="invalid-feedback d-block" hidden></div>
-                  </div>
-                  <div class="row g-3 align-items-center">
-                    <div class="col-md-6">
-                      <div class="form-check form-switch">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="publishRepoVisibility"
-                          checked
-                        />
-                        <label class="form-check-label" for="publishRepoVisibility">
-                          Private repository
-                        </label>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="publishRepoReadme"
-                          checked
-                        />
-                        <label class="form-check-label" for="publishRepoReadme">
-                          Initialize with README
-                        </label>
-                      </div>
-                    </div>
+              <section class="mb-4">
+                <div class="mb-2">
+                  <label for="publishRepo" class="form-label">Repository</label>
+                  <select
+                    class="form-select"
+                    id="publishRepo"
+                    data-placeholder="Search repositories"
+                  >
+                    <option value="" selected disabled>Search repositories</option>
+                  </select>
+                  <div class="form-text">
+                    A repository is your project folder on GitHub. Search for an existing project or
+                    type a new name to create it.
                   </div>
                 </div>
-              </div>
-            </section>
-
-            <section class="mb-4">
-              <div class="mb-2">
-                <label for="publishBranch" class="form-label">Branch</label>
-                <select class="form-select" id="publishBranch" data-placeholder="Choose a branch">
-                  <option value="gh-pages" selected>gh-pages</option>
-                </select>
-                <div class="form-text">
-                  Default branch is gh-pages for publishing. Type a new branch to publish elsewhere.
-                </div>
-              </div>
-              <div id="publishBranchHint" class="small text-muted" aria-live="polite"></div>
-              <div
-                class="alert alert-warning mt-3 mb-0 d-none"
-                id="publishBranchWarning"
-                role="alert"
-              >
-                This branch already has files. Tick the box below to allow overwriting.
-              </div>
-              <div class="form-check form-switch mt-3 d-none" id="publishOverwriteGroup">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="publishOverwrite"
-                  autocomplete="off"
-                />
-                <label class="form-check-label fw-semibold text-danger" for="publishOverwrite">
-                  I understand this will overwrite existing content on this branch
-                </label>
-              </div>
-            </section>
-
-            <section class="mb-2 d-none" id="publishProgressSection">
-              <div class="progress mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div id="publishRepoValidation" class="invalid-feedback d-block" hidden></div>
                 <div
-                  class="progress-bar progress-bar-striped progress-bar-animated"
-                  style="width: 0%"
-                  id="publishProgressBar"
-                  aria-live="polite"
-                  aria-label="Publishing progress"
-                ></div>
-              </div>
-              <p class="small text-muted mb-2" id="publishProgressMessage" aria-live="polite">
-                Preparing…
-              </p>
-              <ul class="list-unstyled small mb-3" id="publishLog" aria-live="polite"></ul>
-              <div
-                class="alert alert-success d-none align-items-start gap-3"
-                id="publishSuccessAlert"
-                role="status"
-              >
-                <div class="flex-grow-1">
-                  <strong>Site published successfully.</strong>
-                  <div class="mt-2 d-flex flex-wrap gap-2">
-                    <a href="#" id="publishRepoLink" target="_blank" rel="noopener"
-                      >Open repository</a
-                    >
-                    <a href="#" id="publishSiteLink" target="_blank" rel="noopener">View site</a>
+                  id="publishNewRepoCard"
+                  class="card border-primary-subtle shadow-sm mt-3"
+                  hidden
+                >
+                  <div class="card-body py-3">
+                    <h2 class="card-title h6 mb-3">Create new repository</h2>
+                    <div class="mb-3">
+                      <span class="form-label d-block">Owner</span>
+                      <div id="publishOwnerOptions" class="d-flex flex-wrap gap-2"></div>
+                      <div
+                        id="publishOwnerValidation"
+                        class="invalid-feedback d-block"
+                        hidden
+                      ></div>
+                    </div>
+                    <div class="row g-3 align-items-center">
+                      <div class="col-md-6">
+                        <div class="form-check form-switch">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            id="publishRepoVisibility"
+                            checked
+                          />
+                          <label class="form-check-label" for="publishRepoVisibility">
+                            Private repository
+                          </label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            id="publishRepoReadme"
+                            checked
+                          />
+                          <label class="form-check-label" for="publishRepoReadme">
+                            Initialize with README
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  class="btn-close"
-                  id="publishSuccessDismiss"
-                  aria-label="Dismiss"
-                ></button>
-              </div>
-            </section>
+              </section>
+
+              <section class="mb-4">
+                <div class="mb-2">
+                  <label for="publishBranch" class="form-label">Branch</label>
+                  <select class="form-select" id="publishBranch" data-placeholder="Choose a branch">
+                    <option value="gh-pages" selected>gh-pages</option>
+                  </select>
+                  <div class="form-text">
+                    Default branch is gh-pages for publishing. Type a new branch to publish
+                    elsewhere.
+                  </div>
+                </div>
+                <div id="publishBranchHint" class="small text-muted" aria-live="polite"></div>
+                <div
+                  class="alert alert-warning mt-3 mb-0 d-none"
+                  id="publishBranchWarning"
+                  role="alert"
+                >
+                  This branch already has files. Tick the box below to allow overwriting.
+                </div>
+                <div class="form-check form-switch mt-3 d-none" id="publishOverwriteGroup">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="publishOverwrite"
+                    autocomplete="off"
+                  />
+                  <label class="form-check-label fw-semibold text-danger" for="publishOverwrite">
+                    I understand this will overwrite existing content on this branch
+                  </label>
+                </div>
+              </section>
+
+              <section class="mb-2 d-none" id="publishProgressSection">
+                <div class="progress mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                  <div
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    style="width: 0%"
+                    id="publishProgressBar"
+                    aria-live="polite"
+                    aria-label="Publishing progress"
+                  ></div>
+                </div>
+                <p class="small text-muted mb-2" id="publishProgressMessage" aria-live="polite">
+                  Preparing…
+                </p>
+                <ul class="list-unstyled small mb-3" id="publishLog" aria-live="polite"></ul>
+                <div
+                  class="alert alert-success d-none align-items-start gap-3"
+                  id="publishSuccessAlert"
+                  role="status"
+                >
+                  <div class="flex-grow-1">
+                    <strong>Site published successfully.</strong>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                      <a href="#" id="publishRepoLink" target="_blank" rel="noopener"
+                        >Open repository</a
+                      >
+                      <a href="#" id="publishSiteLink" target="_blank" rel="noopener">View site</a>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-close"
+                    id="publishSuccessDismiss"
+                    aria-label="Dismiss"
+                  ></button>
+                </div>
+              </section>
             </div>
 
             <div id="publishErrorAlert" class="alert alert-danger d-none" role="alert">

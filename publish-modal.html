@@ -1,0 +1,210 @@
+<div
+  class="modal fade"
+  id="publishModal"
+  tabindex="-1"
+  aria-labelledby="publishModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h1 class="modal-title fs-5 mb-1" id="publishModalLabel">Publish to GitHub</h1>
+          <p class="mb-0 small text-warning fw-semibold" id="publishExperimentalNote">
+            Experimental feature — double-check your repository before sharing.
+          </p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <section
+          class="d-flex align-items-center gap-3 mb-3"
+          id="publishAccount"
+          role="status"
+          aria-live="polite"
+        >
+          <img
+            id="publishAccountAvatar"
+            src=""
+            alt=""
+            class="rounded-circle flex-shrink-0 d-none"
+            width="48"
+            height="48"
+          />
+          <div class="flex-grow-1">
+            <p id="publishAccountName" class="lh-sm mb-1 fw-semibold text-truncate">
+              Not signed in.
+            </p>
+            <p id="publishAccountStatus" class="mb-1 small text-muted">
+              Sign in with GitHub to continue.
+            </p>
+            <p class="mb-0 small text-warning fw-semibold" id="publishExperimentalHint">
+              GitHub publishing is experimental. Review your repository before sharing.
+            </p>
+            <div class="mt-2">
+              <button type="button" class="btn btn-primary btn-sm" id="publishSignIn">
+                Sign in with GitHub
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm d-none"
+                id="publishSignOut"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <div class="alert alert-info d-none" id="publishDevicePanel" role="alert">
+          <p class="mb-1 small">
+            Open
+            <a
+              id="publishDeviceLink"
+              href="https://github.com/login/device"
+              target="_blank"
+              rel="noopener"
+            >
+              github.com/login/device
+            </a>
+            and enter this code:
+          </p>
+          <p class="display-6 fw-bold mb-1" id="publishDeviceCode" aria-live="assertive">—</p>
+          <p class="mb-0 small text-muted" id="publishDeviceExpiry"></p>
+        </div>
+
+        <div id="publishFormWrapper" class="d-none" aria-hidden="true">
+          <section class="mb-4">
+            <div class="mb-2">
+              <label for="publishRepo" class="form-label">Repository</label>
+              <select class="form-select" id="publishRepo" data-placeholder="Search repositories">
+                <option value="" selected disabled>Search repositories</option>
+              </select>
+              <div class="form-text">
+                A repository is your project folder on GitHub. Search for an existing project or
+                type a new name to create it.
+              </div>
+            </div>
+            <div id="publishRepoValidation" class="invalid-feedback d-block" hidden></div>
+            <div id="publishNewRepoCard" class="card border-primary-subtle shadow-sm mt-3" hidden>
+              <div class="card-body py-3">
+                <h2 class="card-title h6 mb-3">Create new repository</h2>
+                <div class="mb-3">
+                  <span class="form-label d-block">Owner</span>
+                  <div id="publishOwnerOptions" class="d-flex flex-wrap gap-2"></div>
+                  <div id="publishOwnerValidation" class="invalid-feedback d-block" hidden></div>
+                </div>
+                <div class="row g-3 align-items-center">
+                  <div class="col-md-6">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="publishRepoVisibility"
+                        checked
+                      />
+                      <label class="form-check-label" for="publishRepoVisibility">
+                        Private repository
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="publishRepoReadme"
+                        checked
+                      />
+                      <label class="form-check-label" for="publishRepoReadme">
+                        Initialize with README
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="mb-4">
+            <div class="mb-2">
+              <label for="publishBranch" class="form-label">Branch</label>
+              <select class="form-select" id="publishBranch" data-placeholder="Choose a branch">
+                <option value="gh-pages" selected>gh-pages</option>
+              </select>
+              <div class="form-text">
+                Default branch is gh-pages for publishing. Type a new branch to publish elsewhere.
+              </div>
+            </div>
+            <div id="publishBranchHint" class="small text-muted" aria-live="polite"></div>
+            <div
+              id="publishBranchWarning"
+              class="alert alert-warning mt-3 mb-0 d-none"
+              role="alert"
+            >
+              This branch already has files. Tick the box below to allow overwriting.
+            </div>
+            <div class="form-check form-switch mt-3 d-none" id="publishOverwriteGroup">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="publishOverwrite"
+                autocomplete="off"
+              />
+              <label class="form-check-label fw-semibold text-danger" for="publishOverwrite">
+                I understand this will overwrite existing content on this branch
+              </label>
+            </div>
+          </section>
+
+          <section class="mb-2 d-none" id="publishProgressSection">
+            <div class="progress mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <div
+                class="progress-bar progress-bar-striped progress-bar-animated"
+                style="width: 0%"
+                id="publishProgressBar"
+                aria-live="polite"
+                aria-label="Publishing progress"
+              ></div>
+            </div>
+            <p class="small text-muted mb-2" id="publishProgressMessage" aria-live="polite">
+              Preparing…
+            </p>
+            <ul class="list-unstyled small mb-3" id="publishLog" aria-live="polite"></ul>
+            <div
+              class="alert alert-success d-none align-items-start gap-3"
+              id="publishSuccessAlert"
+              role="status"
+            >
+              <div class="flex-grow-1">
+                <strong>Site published successfully.</strong>
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                  <a href="#" id="publishRepoLink" target="_blank" rel="noopener"
+                    >Open repository</a
+                  >
+                  <a href="#" id="publishSiteLink" target="_blank" rel="noopener">View site</a>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn-close"
+                id="publishSuccessDismiss"
+                aria-label="Dismiss"
+              ></button>
+            </div>
+          </section>
+        </div>
+
+        <div id="publishErrorAlert" class="alert alert-danger d-none" role="alert">
+          Something went wrong. Please try again.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
+        <button type="button" class="btn btn-primary" id="publishSubmit" disabled>Publish</button>
+      </div>
+    </div>
+  </div>
+</div>
