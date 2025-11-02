@@ -57,7 +57,7 @@
       error.status = response.status;
       try {
         error.body = await response.json();
-      } catch (err) {
+      } catch {
         error.body = null;
       }
       throw error;
@@ -98,7 +98,7 @@
           return runtimeToken.trim();
         }
       } catch (error) {
-        console.warn('getGitHubToken() threw an error', error); // eslint-disable-line no-console
+        console.warn('getGitHubToken() threw an error', error);
       }
     }
     return null;
@@ -700,10 +700,10 @@
 
   function showDevicePanel(payload) {
     if (!ui.devicePanel) {
-      console.error('publishDevicePanel element not found!'); // eslint-disable-line no-console
+      console.error('publishDevicePanel element not found!');
       return;
     }
-    console.log('Showing device panel with payload:', payload); // eslint-disable-line no-console
+    console.log('Showing device panel with payload:', payload);
     ui.devicePanel.classList.remove('d-none');
     ui.devicePanel.removeAttribute('aria-hidden');
     if (ui.deviceCode) {
@@ -783,7 +783,7 @@
       }
       pollDeviceFlow();
     } catch (error) {
-      console.error('Device flow start failed', error); // eslint-disable-line no-console
+      console.error('Device flow start failed', error);
       ui.errorAlert.classList.remove('d-none');
       ui.errorAlert.textContent = 'Unable to start GitHub sign-in. Please try again.';
       logStep('Unable to start GitHub sign-in.', false);
@@ -844,7 +844,7 @@
           ui.errorAlert.classList.add('d-none');
           stopDeviceFlow();
         } catch (error) {
-          console.error('Account load failed after sign-in', error); // eslint-disable-line no-console
+          console.error('Account load failed after sign-in', error);
           setSignedOutState('Unable to load GitHub account. Check your access token.');
           ui.errorAlert.classList.remove('d-none');
           ui.errorAlert.textContent = 'Unable to load GitHub account. Check your access token.';
@@ -861,7 +861,7 @@
           ui.signOutButton.disabled = false;
         }
       } catch (error) {
-        console.error('Device flow polling failed', error); // eslint-disable-line no-console
+        console.error('Device flow polling failed', error);
         ui.errorAlert.classList.remove('d-none');
         ui.errorAlert.textContent = error.message || 'GitHub sign-in failed. Please try again.';
         logStep('GitHub sign-in failed.', false);
@@ -942,11 +942,6 @@
       ui.newRepoCard.setAttribute('aria-hidden', 'true');
     }
     state.selectedRepo = repoState;
-    validateForm();
-  }
-
-  function updateBranchState(branch) {
-    state.selectedBranch = branch;
     validateForm();
   }
 
@@ -1374,12 +1369,12 @@
           const result = onSignOut();
           if (result && typeof result.then === 'function') {
             result.catch((error) => {
-              console.error('Sign out failed', error); // eslint-disable-line no-console
+              console.error('Sign out failed', error);
             });
           }
         }
       } catch (error) {
-        console.error('Sign out handler threw an error', error); // eslint-disable-line no-console
+        console.error('Sign out handler threw an error', error);
       } finally {
         setSignedOutState();
         logStep('Signed out.');
@@ -1394,7 +1389,7 @@
             await loadAccount();
             await loadOwners();
           } catch (error) {
-            console.error('Failed to refresh GitHub account', error); // eslint-disable-line no-console
+            console.error('Failed to refresh GitHub account', error);
             setSignedOutState('Sign in with GitHub to continue.');
             ui.errorAlert.classList.remove('d-none');
             ui.errorAlert.textContent = 'Unable to load GitHub account. Check your access token.';
@@ -1462,7 +1457,7 @@
         await loadAccount();
         await loadOwners();
       } catch (error) {
-        console.error('Failed to load GitHub account', error); // eslint-disable-line no-console
+        console.error('Failed to load GitHub account', error);
         setSignedOutState('Sign in with GitHub to continue.');
         ui.errorAlert.classList.remove('d-none');
         ui.errorAlert.textContent = 'Unable to load GitHub account. Check your access token.';
@@ -1485,7 +1480,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('publishModal')) {
       initPublishModal().catch((error) => {
-        console.error('Failed to initialize publish modal', error); // eslint-disable-line no-console
+        console.error('Failed to initialize publish modal', error);
       });
     }
   });

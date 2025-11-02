@@ -11,7 +11,7 @@ import {
   parseContentXml,
   validateStructuralIntegrity
 } from './validator.js';
-import { InfoPanel, formatBytes } from './info.js';
+import { InfoPanel } from './info.js';
 import { detectFileType, hasIndexHtml, buildFileRecords } from './viewer-utils.js';
 
 const dropzone = document.getElementById('dropzone');
@@ -58,7 +58,7 @@ async function registerPreviewSession(sessionId, files) {
       console.warn('Preview session acknowledgement timed out. Proceeding anyway.');
       try {
         channel.port1.close();
-      } catch (error) {
+      } catch {
         // ignore
       }
       resolve();
@@ -73,7 +73,7 @@ async function registerPreviewSession(sessionId, files) {
         channel.port1.onmessage = null;
         try {
           channel.port1.close();
-        } catch (error) {
+        } catch {
           // ignore
         }
         resolve();
@@ -82,7 +82,7 @@ async function registerPreviewSession(sessionId, files) {
         channel.port1.onmessage = null;
         try {
           channel.port1.close();
-        } catch (error) {
+        } catch {
           // ignore
         }
         reject(new Error(data.message || 'The preview session could not be prepared.'));
@@ -244,7 +244,6 @@ async function buildPublishFilesForSession(session) {
       const files = [];
       for (let index = 0; index < entries.length; index += 1) {
         const [path, record] = entries[index];
-        // eslint-disable-next-line no-await-in-loop
         const base64Content = await blobToBase64(record.blob);
         files.push({ path, base64Content });
         if (typeof window.setProgress === 'function' && entries.length > 0) {
@@ -253,7 +252,6 @@ async function buildPublishFilesForSession(session) {
         }
         if ((index + 1) % ENCODE_CHUNK_SIZE === 0) {
           // Yield to keep the UI responsive for large archives.
-          // eslint-disable-next-line no-await-in-loop
           await new Promise((resolve) => setTimeout(resolve, 0));
         }
       }
@@ -285,7 +283,7 @@ export async function buildFileMap(zip, onProgress = () => {}) {
     onProgress(current, total, path);
     const now = Date.now();
     if (now - lastReport > 5000) {
-      console.info(`[preview] Prepared ${current}/${total}: ${path}`); // eslint-disable-line no-console
+      console.info(`[preview] Prepared ${current}/${total}: ${path}`);
       lastReport = now;
     }
   };
@@ -338,7 +336,7 @@ async function ensureServiceWorkerController() {
           }
         })
         .catch((error) => {
-          console.warn('navigator.serviceWorker.ready rejected', error); // eslint-disable-line no-console
+          console.warn('navigator.serviceWorker.ready rejected', error);
         });
 
       timer = setTimeout(() => {
@@ -354,14 +352,14 @@ async function ensureServiceWorkerController() {
       return controller;
     }
   } catch (error) {
-    console.warn(error.message); // eslint-disable-line no-console
+    console.warn(error.message);
   }
 
   if (!navigator.serviceWorker.controller) {
     const reloadAttempted = sessionStorage.getItem(reloadFlagKey) === '1';
     if (!reloadAttempted) {
       sessionStorage.setItem(reloadFlagKey, '1');
-      console.info('Reloading the page so the preview service worker can take control.'); // eslint-disable-line no-console
+      console.info('Reloading the page so the preview service worker can take control.');
       window.location.reload();
       throw new Error('Reloading to allow service worker control.');
     }
@@ -496,7 +494,7 @@ async function handleElpxFile(file) {
   const { fileMap, fileList, totalSize } = await buildFileMap(zip, (current, total, path) => {
     updateStatus(`Preparing preview… ${current}/${total}`);
     if ((current % 50 === 0 || current === total) && path) {
-      console.info(`[preview] Extracted ${current}/${total}: ${path}`); // eslint-disable-line no-console
+      console.info(`[preview] Extracted ${current}/${total}: ${path}`);
     }
   });
   warnLargeArchive(totalSize);
@@ -520,13 +518,13 @@ async function handleElpxFile(file) {
     await registerPreviewSession(sessionId, sessionFiles);
     ackReceived = true;
   } catch (error) {
-    console.warn('Preview session wait timed out, proceeding anyway.', error); // eslint-disable-line no-console
+    console.warn('Preview session wait timed out, proceeding anyway.', error);
   }
 
   const previewUrl = new URL(`preview/${sessionId}/index.html`, getAppBaseUrl());
   setPreviewState({ showFrame: true, src: previewUrl.toString() });
   updateStatus('Preview ready.');
-  console.info(`[preview] Session ${sessionId} ready${ackReceived ? '' : ' (no ack)'}.`); // eslint-disable-line no-console
+  console.info(`[preview] Session ${sessionId} ready${ackReceived ? '' : ' (no ack)'}.`);
 
   const messages = gatherMessages(manifestKind, xmlDoc, zip);
 
