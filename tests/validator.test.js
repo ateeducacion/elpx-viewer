@@ -10,7 +10,7 @@ const {
   extractMetadata,
   extractLegacyMetadata,
   normalizeLegacyMetadata
-} = require('../js/validator');
+} = require('../src/validator.js');
 
 describe('ELP Validator helpers', () => {
   const minimalXml = `<?xml version="1.0"?>

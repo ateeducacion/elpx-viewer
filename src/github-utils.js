@@ -2,6 +2,7 @@ export function isValidBranchName(name) {
   if (typeof name !== 'string') return false;
   const trimmed = name.trim();
   if (!trimmed) return false;
+  if (trimmed !== name) return false;
   if (trimmed.startsWith('/') || trimmed.endsWith('/')) return false;
   if (trimmed.includes('..') || trimmed.includes('@{')) return false;
   if (/\s/.test(trimmed)) return false;
