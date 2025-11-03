@@ -25,7 +25,10 @@
     branchList: [],
     deviceFlowState: null,
     devicePollingTimer: null,
-    deviceProxyUsed: false
+    deviceProxyUsed: false,
+    publishSuccessInfo: null,
+    publishAbortController: null,
+    publishCancelled: false
   };
 
   const ui = {};
@@ -49,7 +52,8 @@
     const response = await fetch(`${API_BASE}${path}`, {
       method,
       headers: { ...githubHeaders(), ...headers },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
+      signal: state.publishAbortController?.signal
     });
     logRateLimitIfNeeded(response);
     if (!response.ok) {
@@ -480,18 +484,34 @@
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
       );
       const defaultBranch = repoData.default_branch;
-      const ref = await githubRequest(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
-          repo
-        )}/git/ref/heads/${encodeURIComponent(defaultBranch)}`
-      );
+
+      let baseSha;
+      try {
+        const ref = await githubRequest(
+          `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+            repo
+          )}/git/ref/heads/${encodeURIComponent(defaultBranch)}`
+        );
+        baseSha = ref.object.sha;
+      } catch (refError) {
+        // 404 = branch doesn't exist, 409 = branch exists but has no commits
+        if (refError.status !== 404 && refError.status !== 409) {
+          throw refError;
+        }
+        // Repository is empty - inform user
+        const error = new Error('Git Repository is empty. The repo should have at least one file, add a readme');
+        error.status = 400;
+        throw error;
+
+      }
+
       await githubRequest(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`,
         {
           method: 'POST',
           body: {
             ref: `refs/heads/${branchName}`,
-            sha: ref.object.sha
+            sha: baseSha
           }
         }
       );
@@ -551,7 +571,9 @@
   }
 
   async function uploadWithContentsApi(owner, repo, branch, files, message, force) {
-    for (const file of files) {
+    const totalFiles = files.length;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const encodedPath = encodeContentPath(file.path);
       const resource = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
         repo
@@ -577,6 +599,9 @@
         }
       });
       logStep(`${file.path} uploaded`);
+      // Update progress: 60% to 90% range distributed across files
+      const progress = 60 + Math.floor((30 * (i + 1)) / totalFiles);
+      setProgress(progress, `Uploading files… (${i + 1}/${totalFiles})`);
     }
   }
 
@@ -592,7 +617,9 @@
     );
 
     const treeEntries = [];
-    for (const file of files) {
+    const totalFiles = files.length;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const blob = await githubRequest(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
         {
@@ -609,8 +636,12 @@
         type: 'blob',
         sha: blob.sha
       });
+      // Update progress: 60% to 85% range distributed across blob uploads
+      const progress = 60 + Math.floor((25 * (i + 1)) / totalFiles);
+      setProgress(progress, `Uploading blobs… (${i + 1}/${totalFiles})`);
     }
 
+    setProgress(86, 'Creating tree…');
     const tree = await githubRequest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees`,
       {
@@ -622,6 +653,7 @@
       }
     );
 
+    setProgress(88, 'Creating commit…');
     const commit = await githubRequest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/commits`,
       {
@@ -634,6 +666,7 @@
       }
     );
 
+    setProgress(90, 'Updating branch…');
     await githubRequest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs/heads/${encodeURIComponent(
         branch
@@ -686,6 +719,59 @@
     item.className = statusClass;
     item.innerHTML = `<span class="me-2">${icon}</span>${escapeHtml(message)}`;
     ui.logList.appendChild(item);
+  }
+
+  function stopProgressAnimation() {
+    if (!ui.progressBar) {
+      return;
+    }
+    ui.progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+    ui.progressBar.classList.add('bg-success');
+  }
+
+  function startProgressAnimation() {
+    if (!ui.progressBar) {
+      return;
+    }
+    ui.progressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+    ui.progressBar.classList.remove('bg-success');
+  }
+
+  function updateSuccessActions() {
+    if (!ui.defaultActions || !ui.successActions) {
+      return;
+    }
+
+    const info = state.publishSuccessInfo;
+    if (!info) {
+      ui.defaultActions.classList.remove('d-none');
+      ui.successActions.classList.add('d-none');
+      if (ui.successRepoButton) {
+        ui.successRepoButton.href = '#';
+      }
+      if (ui.successSiteButton) {
+        ui.successSiteButton.href = '#';
+        ui.successSiteButton.classList.remove('d-none');
+      }
+      return;
+    }
+
+    const { owner, repo, branch } = info;
+    ui.defaultActions.classList.add('d-none');
+    ui.successActions.classList.remove('d-none');
+    if (ui.successRepoButton) {
+      ui.successRepoButton.href = `https://github.com/${owner}/${repo}`;
+    }
+
+    if (ui.successSiteButton) {
+      if (branch === 'gh-pages') {
+        ui.successSiteButton.href = `https://${owner}.github.io/${repo}/`;
+        ui.successSiteButton.classList.remove('d-none');
+      } else {
+        ui.successSiteButton.href = '#';
+        ui.successSiteButton.classList.add('d-none');
+      }
+    }
   }
 
   function setProgress(percent, message) {
@@ -886,6 +972,9 @@
     ui.repoLink.href = '#';
     ui.siteLink.href = '#';
     state.rateLimitWarned = false;
+    state.publishSuccessInfo = null;
+    startProgressAnimation();
+    updateSuccessActions();
   }
 
   function getSelectedOwner() {
@@ -1008,18 +1097,44 @@
 
   function disableFormControls() {
     state.isPublishing = true;
+    state.publishAbortController = new AbortController();
+    state.publishCancelled = false;
+
+    // Prevent closing modal by clicking outside
+    const modalInstance = bootstrap.Modal.getInstance(ui.modal);
+    if (modalInstance) {
+      modalInstance._config.backdrop = 'static';
+      modalInstance._config.keyboard = false;
+    }
+
     ui.submitButton.disabled = true;
     ui.submitButton.innerHTML =
       '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Publishing…';
     ui.modal.querySelectorAll('input, select, button, textarea').forEach((el) => {
-      if (el.id !== 'publishSuccessDismiss') {
+      if (el.id !== 'publishSuccessDismiss' && !el.hasAttribute('data-bs-dismiss') && el.className.indexOf('btn-close') === -1) {
         el.disabled = true;
       }
     });
+
+    // Enable close buttons but change their behavior
+    const closeButtons = ui.modal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+    closeButtons.forEach((btn) => {
+      btn.disabled = false;
+    });
   }
 
-  function enableFormControls() {
+  function enableFormControls(keepSuccessState = false) {
     state.isPublishing = false;
+    state.publishAbortController = null;
+    state.publishCancelled = false;
+
+    // Re-enable closing modal by clicking outside
+    const modalInstance = bootstrap.Modal.getInstance(ui.modal);
+    if (modalInstance) {
+      modalInstance._config.backdrop = true;
+      modalInstance._config.keyboard = true;
+    }
+
     ui.modal.querySelectorAll('input, select, button, textarea').forEach((el) => {
       if (el.dataset.bsDismiss === 'modal' || el.closest('#publishProgressSection')) {
         el.disabled = false;
@@ -1027,17 +1142,21 @@
       }
       el.disabled = false;
     });
-    ui.submitButton.innerHTML = 'Publish';
-    validateForm();
-    if (!state.account) {
-      if (ui.repoSelect) {
-        ui.repoSelect.prop('disabled', true);
+
+    if (!keepSuccessState) {
+      ui.submitButton.innerHTML = 'Publish';
+      validateForm();
+      if (!state.account) {
+        if (ui.repoSelect) {
+          ui.repoSelect.prop('disabled', true);
+        }
+        if (ui.branchSelect) {
+          ui.branchSelect.prop('disabled', true);
+        }
+        ui.submitButton.disabled = true;
       }
-      if (ui.branchSelect) {
-        ui.branchSelect.prop('disabled', true);
-      }
-      ui.submitButton.disabled = true;
     }
+    updateSuccessActions();
   }
 
   function resetModal() {
@@ -1207,6 +1326,13 @@
   }
 
   function handleSuccess({ owner, repo, branch }) {
+    state.publishSuccessInfo = { owner, repo, branch };
+    stopProgressAnimation();
+    updateSuccessActions();
+
+    // Enable form controls but keep success state
+    enableFormControls(true);
+
     ui.successAlert.classList.remove('d-none');
     ui.repoLink.href = `https://github.com/${owner}/${repo}`;
     if (branch === 'gh-pages') {
@@ -1235,6 +1361,9 @@
       }
       ui.repoLink.focus();
     }
+    if (ui.submitButton) {
+      ui.submitButton.disabled = true;
+    }
   }
 
   function handleError(error) {
@@ -1246,15 +1375,34 @@
       return;
     }
     ui.errorAlert.classList.remove('d-none');
-    if (error && error.body && error.body.message) {
+    if (error && error.message) {
+      ui.errorAlert.textContent = error.message;
+      logStep(error.message, false);
+    } else if (error && error.body && error.body.message) {
       ui.errorAlert.textContent = error.body.message;
+      logStep(error.body.message, false);
     } else if (error && error.status === 403) {
       ui.errorAlert.textContent =
-        'You don’t have permission to create repositories under this owner. Try another owner.';
+        "You don't have permission to create repositories under this owner. Try another owner.";
+      logStep('Permission denied', false);
     } else {
       ui.errorAlert.textContent = 'Something went wrong. Please try again.';
+      logStep('Error encountered', false);
     }
-    logStep(error?.body?.message || 'Error encountered', false);
+    enableFormControls();
+  }
+
+  function cancelPublishing() {
+    if (!state.isPublishing) {
+      return;
+    }
+    state.publishCancelled = true;
+    if (state.publishAbortController) {
+      state.publishAbortController.abort();
+    }
+    logStep('Publishing cancelled by user', false);
+    ui.errorAlert.classList.remove('d-none');
+    ui.errorAlert.textContent = 'Publishing was cancelled.';
     enableFormControls();
   }
 
@@ -1285,7 +1433,7 @@
         }
         const options = {
           private: ui.repoVisibility.checked,
-          autoInit: ui.repoReadme.checked
+          autoInit: true
         };
         try {
           repoData = await ensureRepo(owner, repoState.name, options);
@@ -1340,12 +1488,12 @@
       logStep('Done.');
       handleSuccess({ owner: ownerLogin, repo: repoName, branch });
     } catch (error) {
+      if (error.name === 'AbortError' || state.publishCancelled) {
+        // Already handled in cancelPublishing
+        return;
+      }
       handleError(error);
       return;
-    } finally {
-      if (state.account) {
-        enableFormControls();
-      }
     }
   }
 
@@ -1406,6 +1554,19 @@
       }
     });
 
+    $('#publishModal').on('hide.bs.modal', (event) => {
+      if (state.isPublishing) {
+        // Prevent modal from closing
+        event.preventDefault();
+        // Cancel the publishing process
+        cancelPublishing();
+        // Now allow it to close
+        setTimeout(() => {
+          $('#publishModal').modal('hide');
+        }, 100);
+      }
+    });
+
     $('#publishModal').on('hidden.bs.modal', () => {
       resetModal();
       if (!state.account) {
@@ -1431,7 +1592,6 @@
     ui.ownerValidation = document.getElementById('publishOwnerValidation');
     ui.newRepoCard = document.getElementById('publishNewRepoCard');
     ui.repoVisibility = document.getElementById('publishRepoVisibility');
-    ui.repoReadme = document.getElementById('publishRepoReadme');
     ui.branchHint = document.getElementById('publishBranchHint');
     ui.branchWarning = document.getElementById('publishBranchWarning');
     ui.overwriteGroup = document.getElementById('publishOverwriteGroup');
@@ -1446,6 +1606,10 @@
     ui.siteLink = document.getElementById('publishSiteLink');
     ui.successDismiss = document.getElementById('publishSuccessDismiss');
     ui.submitButton = document.getElementById('publishSubmit');
+    ui.defaultActions = document.getElementById('publishDefaultActions');
+    ui.successActions = document.getElementById('publishSuccessActions');
+    ui.successRepoButton = document.getElementById('publishSuccessRepoButton');
+    ui.successSiteButton = document.getElementById('publishSuccessSiteButton');
 
     initSelect2();
     bindEvents();
