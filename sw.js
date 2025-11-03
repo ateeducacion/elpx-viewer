@@ -1,7 +1,7 @@
 const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
 const sessions = new Map();
 
-export function parsePreviewRequest(url, { basePath = '/' } = {}) {
+function parsePreviewRequest(url, { basePath = '/' } = {}) {
   const { pathname, origin } = url instanceof URL ? url : new URL(url);
   const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
   if (!pathname.startsWith(normalizedBase)) {
