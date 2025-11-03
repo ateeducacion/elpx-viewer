@@ -751,7 +751,10 @@
       }
       if (ui.successSiteButton) {
         ui.successSiteButton.href = '#';
-        ui.successSiteButton.classList.remove('d-none');
+        ui.successSiteButton.classList.add('d-none');
+      }
+      if (ui.successHint) {
+        ui.successHint.classList.add('d-none');
       }
       return;
     }
@@ -763,13 +766,21 @@
       ui.successRepoButton.href = `https://github.com/${owner}/${repo}`;
     }
 
+    const isGhPages = branch === 'gh-pages';
     if (ui.successSiteButton) {
-      if (branch === 'gh-pages') {
+      if (isGhPages) {
         ui.successSiteButton.href = `https://${owner}.github.io/${repo}/`;
         ui.successSiteButton.classList.remove('d-none');
       } else {
         ui.successSiteButton.href = '#';
         ui.successSiteButton.classList.add('d-none');
+      }
+    }
+    if (ui.successHint) {
+      if (isGhPages) {
+        ui.successHint.classList.remove('d-none');
+      } else {
+        ui.successHint.classList.add('d-none');
       }
     }
   }
@@ -969,8 +980,6 @@
     ui.logList.innerHTML = '';
     ui.successAlert.classList.add('d-none');
     ui.errorAlert.classList.add('d-none');
-    ui.repoLink.href = '#';
-    ui.siteLink.href = '#';
     state.rateLimitWarned = false;
     state.publishSuccessInfo = null;
     startProgressAnimation();
@@ -1334,33 +1343,12 @@
     enableFormControls(true);
 
     ui.successAlert.classList.remove('d-none');
-    ui.repoLink.href = `https://github.com/${owner}/${repo}`;
-    if (branch === 'gh-pages') {
-      ui.siteLink.classList.remove('d-none');
-      ui.siteLink.href = `https://${owner}.github.io/${repo}/`;
-      ui.siteLink.setAttribute('title', 'Site deployments can take a few minutes to go live.');
-      ui.siteLink.dataset.bsToggle = 'tooltip';
-      ui.siteLink.dataset.bsPlacement = 'top';
-      ui.siteLink.dataset.bsTitle = 'GitHub Pages can take a few minutes to deploy.';
-      if (window.bootstrap?.Tooltip) {
-        window.bootstrap.Tooltip.getOrCreateInstance(ui.siteLink);
-      }
-      ui.siteLink.textContent = 'View site (can take a few minutes to deploy)';
-      ui.siteLink.focus();
-    } else {
-      ui.siteLink.classList.add('d-none');
-      ui.siteLink.href = '#';
-      ui.siteLink.textContent = 'View site';
-      ui.siteLink.removeAttribute('title');
-      delete ui.siteLink.dataset.bsToggle;
-      delete ui.siteLink.dataset.bsPlacement;
-      delete ui.siteLink.dataset.bsTitle;
-      if (window.bootstrap?.Tooltip) {
-        const tooltipInstance = window.bootstrap.Tooltip.getInstance(ui.siteLink);
-        tooltipInstance?.dispose();
-      }
-      ui.repoLink.focus();
-    }
+    const focusTarget =
+      (ui.successSiteButton && !ui.successSiteButton.classList.contains('d-none') && ui.successSiteButton) ||
+      ui.successRepoButton ||
+      ui.successClose;
+    focusTarget?.focus();
+
     if (ui.submitButton) {
       ui.submitButton.disabled = true;
     }
@@ -1602,14 +1590,14 @@
     ui.logList = document.getElementById('publishLog');
     ui.successAlert = document.getElementById('publishSuccessAlert');
     ui.errorAlert = document.getElementById('publishErrorAlert');
-    ui.repoLink = document.getElementById('publishRepoLink');
-    ui.siteLink = document.getElementById('publishSiteLink');
     ui.successDismiss = document.getElementById('publishSuccessDismiss');
     ui.submitButton = document.getElementById('publishSubmit');
     ui.defaultActions = document.getElementById('publishDefaultActions');
     ui.successActions = document.getElementById('publishSuccessActions');
     ui.successRepoButton = document.getElementById('publishSuccessRepoButton');
     ui.successSiteButton = document.getElementById('publishSuccessSiteButton');
+    ui.successHint = document.getElementById('publishSuccessHint');
+    ui.successClose = document.getElementById('publishSuccessClose');
 
     initSelect2();
     bindEvents();
