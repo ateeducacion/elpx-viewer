@@ -296,7 +296,7 @@ async function registerServiceWorker() {
   }
   try {
     const swUrl = new URL('../sw.js', import.meta.url);
-    const registration = await navigator.serviceWorker.register(swUrl.href, { type: 'module' });
+    const registration = await navigator.serviceWorker.register(swUrl.href);
     return registration;
   } catch (error) {
     console.error('Service worker registration failed', error);
