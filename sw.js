@@ -32,11 +32,12 @@ function cleanStaleSessions() {
 function storeSession(sessionId, files) {
   const fileMap = new Map();
   files.forEach((file) => {
-    if (!file.path || !file.blob) {
+    if (!file.path || !file.buffer) {
       return;
     }
+    const blob = new Blob([file.buffer], { type: file.mimeType });
     fileMap.set(file.path, {
-      blob: file.blob,
+      blob,
       mimeType: file.mimeType || 'application/octet-stream',
       lastModified: file.lastModified || Date.now()
     });

@@ -43,7 +43,7 @@ function postToServiceWorker(message) {
   }
 }
 
-async function registerPreviewSession(sessionId, files) {
+async function registerPreviewSession(sessionId, files, transferList = []) {
   if (!('serviceWorker' in navigator)) {
     return;
   }
@@ -95,7 +95,7 @@ async function registerPreviewSession(sessionId, files) {
         files,
         replyPort: channel.port2
       },
-      [channel.port2]
+      [channel.port2, ...transferList]
     );
   });
 }
@@ -506,16 +506,28 @@ async function handleElpxFile(file) {
   const sessionId = createSessionId();
 
   await ensureServiceWorkerController();
-  const sessionFiles = Array.from(fileMap.entries()).map(([path, record]) => ({
-    sessionId,
-    path,
-    mimeType: record.mimeType,
-    lastModified: record.lastModified,
-    blob: record.blob
-  }));
+  const sessionFiles = [];
+  const transferList = [];
+  const fileEntries = Array.from(fileMap.entries());
+  for (let i = 0; i < fileEntries.length; i += 1) {
+    const [path, record] = fileEntries[i];
+    const buffer = await record.blob.arrayBuffer();
+    sessionFiles.push({
+      path,
+      mimeType: record.mimeType,
+      lastModified: record.lastModified,
+      buffer
+    });
+    transferList.push(buffer);
+    if ((i > 0 && i % 50 === 0) || i === fileEntries.length - 1) {
+      updateStatus(`Transferring preview files… ${i + 1}/${fileEntries.length}`);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   let ackReceived = false;
   try {
-    await registerPreviewSession(sessionId, sessionFiles);
+    await registerPreviewSession(sessionId, sessionFiles, transferList);
     ackReceived = true;
   } catch (error) {
     console.warn('Preview session wait timed out, proceeding anyway.', error);
