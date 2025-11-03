@@ -8,6 +8,10 @@
   const DEVICE_POLL_BUFFER = 1000;
   const TOKEN_STORAGE_KEY = 'github_device_token';
   const USER_STORAGE_KEY = 'github_device_user';
+  const MAX_BLOB_PARALLEL_UPLOADS = 4;
+  const BLOB_UPLOAD_MAX_RETRIES = 4;
+  const BLOB_UPLOAD_BASE_DELAY_MS = 750;
+  const BLOB_UPLOAD_CHUNK_DELAY_MS = 200;
 
   const state = {
     account: null,
@@ -173,6 +177,12 @@
       }
       return acc;
     }, {});
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   async function fetchAllPages(path, params = {}) {
@@ -605,6 +615,48 @@
     }
   }
 
+  function isRetryableBlobError(error) {
+    if (!error || error.status !== 403) {
+      return false;
+    }
+    const message = String(error.body?.message || '').toLowerCase();
+    if (!message) {
+      return false;
+    }
+    if (message.includes('abuse detection') || message.includes('secondary rate limit')) {
+      return true;
+    }
+    if (message.includes('rate limit')) {
+      return true;
+    }
+    return false;
+  }
+
+  async function uploadBlobWithRetry(owner, repo, file, attempt = 0) {
+    try {
+      return await githubRequest(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
+        {
+          method: 'POST',
+          body: {
+            content: file.base64Content,
+            encoding: 'base64'
+          }
+        }
+      );
+    } catch (error) {
+      if (attempt < BLOB_UPLOAD_MAX_RETRIES && isRetryableBlobError(error)) {
+        const delayMs = Math.min(BLOB_UPLOAD_BASE_DELAY_MS * 2 ** attempt, 4000);
+        if (attempt === 0) {
+          logStep('GitHub is throttling uploads. Waiting before retrying…', 'warning');
+        }
+        await delay(delayMs);
+        return uploadBlobWithRetry(owner, repo, file, attempt + 1);
+      }
+      throw error;
+    }
+  }
+
   async function uploadWithGitDataApi(owner, repo, branch, files, message, force) {
     const ref = await githubRequest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(
@@ -618,27 +670,39 @@
 
     const treeEntries = [];
     const totalFiles = files.length;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const blob = await githubRequest(
-        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
-        {
-          method: 'POST',
-          body: {
-            content: file.base64Content,
-            encoding: 'base64'
-          }
-        }
+    const parallelUploads = Math.min(
+      MAX_BLOB_PARALLEL_UPLOADS,
+      Math.max(1, totalFiles)
+    ); // Number of blobs to upload in parallel
+
+    // Process files in chunks for parallel upload
+    for (let i = 0; i < files.length; i += parallelUploads) {
+      const chunk = files.slice(i, i + parallelUploads);
+
+      // Upload all blobs in this chunk in parallel
+      const blobResults = await Promise.all(
+        chunk.map(async (file) => {
+          const blob = await uploadBlobWithRetry(owner, repo, file);
+          return {
+            path: file.path,
+            mode: '100644',
+            type: 'blob',
+            sha: blob.sha
+          };
+        })
       );
-      treeEntries.push({
-        path: file.path,
-        mode: '100644',
-        type: 'blob',
-        sha: blob.sha
-      });
+
+      // Add all results to treeEntries
+      treeEntries.push(...blobResults);
+
       // Update progress: 60% to 85% range distributed across blob uploads
-      const progress = 60 + Math.floor((25 * (i + 1)) / totalFiles);
-      setProgress(progress, `Uploading blobs… (${i + 1}/${totalFiles})`);
+      const uploadedCount = Math.min(i + chunk.length, totalFiles);
+      const progress = 60 + Math.floor((25 * uploadedCount) / totalFiles);
+      setProgress(progress, `Uploading blobs… (${uploadedCount}/${totalFiles})`);
+
+      if (uploadedCount < totalFiles) {
+        await delay(BLOB_UPLOAD_CHUNK_DELAY_MS);
+      }
     }
 
     setProgress(86, 'Creating tree…');
@@ -753,6 +817,10 @@
         ui.successSiteButton.href = '#';
         ui.successSiteButton.classList.remove('d-none');
       }
+      if (ui.successFooterHint) {
+        ui.successFooterHint.classList.add('d-none');
+        ui.successFooterHint.textContent = '';
+      }
       return;
     }
 
@@ -770,6 +838,16 @@
       } else {
         ui.successSiteButton.href = '#';
         ui.successSiteButton.classList.add('d-none');
+      }
+    }
+
+    if (ui.successFooterHint) {
+      if (branch === 'gh-pages') {
+        ui.successFooterHint.textContent = 'GitHub Pages can take a few minutes to deploy.';
+        ui.successFooterHint.classList.remove('d-none');
+      } else {
+        ui.successFooterHint.classList.add('d-none');
+        ui.successFooterHint.textContent = '';
       }
     }
   }
@@ -969,8 +1047,6 @@
     ui.logList.innerHTML = '';
     ui.successAlert.classList.add('d-none');
     ui.errorAlert.classList.add('d-none');
-    ui.repoLink.href = '#';
-    ui.siteLink.href = '#';
     state.rateLimitWarned = false;
     state.publishSuccessInfo = null;
     startProgressAnimation();
@@ -1334,35 +1410,18 @@
     enableFormControls(true);
 
     ui.successAlert.classList.remove('d-none');
-    ui.repoLink.href = `https://github.com/${owner}/${repo}`;
-    if (branch === 'gh-pages') {
-      ui.siteLink.classList.remove('d-none');
-      ui.siteLink.href = `https://${owner}.github.io/${repo}/`;
-      ui.siteLink.setAttribute('title', 'Site deployments can take a few minutes to go live.');
-      ui.siteLink.dataset.bsToggle = 'tooltip';
-      ui.siteLink.dataset.bsPlacement = 'top';
-      ui.siteLink.dataset.bsTitle = 'GitHub Pages can take a few minutes to deploy.';
-      if (window.bootstrap?.Tooltip) {
-        window.bootstrap.Tooltip.getOrCreateInstance(ui.siteLink);
-      }
-      ui.siteLink.textContent = 'View site (can take a few minutes to deploy)';
-      ui.siteLink.focus();
-    } else {
-      ui.siteLink.classList.add('d-none');
-      ui.siteLink.href = '#';
-      ui.siteLink.textContent = 'View site';
-      ui.siteLink.removeAttribute('title');
-      delete ui.siteLink.dataset.bsToggle;
-      delete ui.siteLink.dataset.bsPlacement;
-      delete ui.siteLink.dataset.bsTitle;
-      if (window.bootstrap?.Tooltip) {
-        const tooltipInstance = window.bootstrap.Tooltip.getInstance(ui.siteLink);
-        tooltipInstance?.dispose();
-      }
-      ui.repoLink.focus();
-    }
     if (ui.submitButton) {
       ui.submitButton.disabled = true;
+    }
+
+    if (
+      branch === 'gh-pages' &&
+      ui.successSiteButton &&
+      !ui.successSiteButton.classList.contains('d-none')
+    ) {
+      ui.successSiteButton.focus();
+    } else if (ui.successRepoButton) {
+      ui.successRepoButton.focus();
     }
   }
 
@@ -1375,20 +1434,28 @@
       return;
     }
     ui.errorAlert.classList.remove('d-none');
-    if (error && error.message) {
-      ui.errorAlert.textContent = error.message;
-      logStep(error.message, false);
-    } else if (error && error.body && error.body.message) {
-      ui.errorAlert.textContent = error.body.message;
-      logStep(error.body.message, false);
+    const bodyMessage = String(error?.body?.message || '');
+    let alertMessage = 'Something went wrong. Please try again.';
+    let logMessage = 'Error encountered';
+
+    if (error?.status === 403 && /abuse detection|rate limit/i.test(bodyMessage)) {
+      alertMessage =
+        'GitHub temporarily rate limited the upload. Wait a few seconds and try again.';
+      logMessage = bodyMessage || 'GitHub rate limited uploads';
+    } else if (bodyMessage) {
+      alertMessage = bodyMessage;
+      logMessage = bodyMessage;
+    } else if (error && error.message) {
+      alertMessage = error.message;
+      logMessage = error.message;
     } else if (error && error.status === 403) {
-      ui.errorAlert.textContent =
+      alertMessage =
         "You don't have permission to create repositories under this owner. Try another owner.";
-      logStep('Permission denied', false);
-    } else {
-      ui.errorAlert.textContent = 'Something went wrong. Please try again.';
-      logStep('Error encountered', false);
+      logMessage = 'Permission denied';
     }
+
+    ui.errorAlert.textContent = alertMessage;
+    logStep(logMessage, false);
     enableFormControls();
   }
 
@@ -1602,14 +1669,13 @@
     ui.logList = document.getElementById('publishLog');
     ui.successAlert = document.getElementById('publishSuccessAlert');
     ui.errorAlert = document.getElementById('publishErrorAlert');
-    ui.repoLink = document.getElementById('publishRepoLink');
-    ui.siteLink = document.getElementById('publishSiteLink');
     ui.successDismiss = document.getElementById('publishSuccessDismiss');
     ui.submitButton = document.getElementById('publishSubmit');
     ui.defaultActions = document.getElementById('publishDefaultActions');
     ui.successActions = document.getElementById('publishSuccessActions');
     ui.successRepoButton = document.getElementById('publishSuccessRepoButton');
     ui.successSiteButton = document.getElementById('publishSuccessSiteButton');
+    ui.successFooterHint = document.getElementById('publishSuccessFooterHint');
 
     initSelect2();
     bindEvents();
