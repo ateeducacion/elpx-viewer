@@ -1416,7 +1416,7 @@
 
     let ownerLogin = repoState.owner;
     let repoName = repoState.repo;
-    let repoData = repoState.data;
+    let repoData;
 
     try {
       if (repoState.isNew) {

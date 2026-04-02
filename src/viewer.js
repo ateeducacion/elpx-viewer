@@ -468,7 +468,7 @@ async function handleElpxFile(file) {
     zip = await JSZip.loadAsync(await file.arrayBuffer());
   } catch (error) {
     console.error(error);
-    throw new Error('The file could not be read as a ZIP archive.');
+    throw new Error('The file could not be read as a ZIP archive.', { cause: error });
   }
 
   const manifestFile = zip.file('content.xml') || zip.file('contentv3.xml');
@@ -588,7 +588,7 @@ async function handleElpFile(file) {
     zip = await JSZip.loadAsync(await file.arrayBuffer());
   } catch (error) {
     console.error(error);
-    throw new Error('The file could not be read as a ZIP archive.');
+    throw new Error('The file could not be read as a ZIP archive.', { cause: error });
   }
 
   const manifestFile = zip.file('content.xml') || zip.file('contentv3.xml');
