@@ -499,10 +499,11 @@
           throw refError;
         }
         // Repository is empty - inform user
-        const error = new Error('Git Repository is empty. The repo should have at least one file, add a readme');
+        const error = new Error(
+          'Git Repository is empty. The repo should have at least one file, add a readme'
+        );
         error.status = 400;
         throw error;
-
       }
 
       await githubRequest(
@@ -1120,7 +1121,11 @@
     ui.submitButton.innerHTML =
       '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Publishing…';
     ui.modal.querySelectorAll('input, select, button, textarea').forEach((el) => {
-      if (el.id !== 'publishSuccessDismiss' && !el.hasAttribute('data-bs-dismiss') && el.className.indexOf('btn-close') === -1) {
+      if (
+        el.id !== 'publishSuccessDismiss' &&
+        !el.hasAttribute('data-bs-dismiss') &&
+        el.className.indexOf('btn-close') === -1
+      ) {
         el.disabled = true;
       }
     });
@@ -1344,7 +1349,9 @@
 
     ui.successAlert.classList.remove('d-none');
     const focusTarget =
-      (ui.successSiteButton && !ui.successSiteButton.classList.contains('d-none') && ui.successSiteButton) ||
+      (ui.successSiteButton &&
+        !ui.successSiteButton.classList.contains('d-none') &&
+        ui.successSiteButton) ||
       ui.successRepoButton ||
       ui.successClose;
     focusTarget?.focus();
