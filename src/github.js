@@ -897,7 +897,6 @@ export class GitHubPublisher {
       this.handleBranchSelection();
     }
     branchName = this.getBranchName();
-    branchName = this.getBranchName();
     if (!isValidBranchName(branchName)) {
       this.toast('Branch name is not valid.', 'warning');
       return;
